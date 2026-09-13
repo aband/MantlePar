@@ -4,7 +4,7 @@ add_library(mantle_core
     util.cpp
 )
 
-target_include_directories(mantle_general
+target_include_directories(mantle_core
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 

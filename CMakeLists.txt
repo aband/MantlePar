@@ -17,7 +17,7 @@ find_package(MPI REQUIRED COMPONENTS C CXX)
 pkg_search_module(PETSC REQUIRED IMPORTED_TARGET PETSc petsc)
 pkg_check_modules(LAPACKE REQUIRED IMPORTED_TARGET lapacke)
 
-add_subdirectory(src/core)
+#add_subdirectory(src/core)
 
 # Register subsequent modules as we reconstruct them:
 # add_subdirectory(src/phase)
