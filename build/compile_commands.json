@@ -1,0 +1,14 @@
+[
+{
+  "directory": "/home/renpo/Research/MantlePar/build/src/core",
+  "command": "/home/renpo/system/mpich-install/bin/mpicxx  -I/home/renpo/Research/MantlePar/src/core -isystem /home/renpo/system/petsc-install/include -std=c++17 -o CMakeFiles/mantle_core.dir/mesh.cpp.o -c /home/renpo/Research/MantlePar/src/core/mesh.cpp",
+  "file": "/home/renpo/Research/MantlePar/src/core/mesh.cpp",
+  "output": "src/core/CMakeFiles/mantle_core.dir/mesh.cpp.o"
+},
+{
+  "directory": "/home/renpo/Research/MantlePar/build/src/core/test",
+  "command": "/home/renpo/system/mpich-install/bin/mpicxx  -I/home/renpo/Research/MantlePar/src/core -isystem /home/renpo/system/petsc-install/include -std=c++17 -o CMakeFiles/test_mesh.dir/test_mesh.cpp.o -c /home/renpo/Research/MantlePar/src/core/test/test_mesh.cpp",
+  "file": "/home/renpo/Research/MantlePar/src/core/test/test_mesh.cpp",
+  "output": "src/core/test/CMakeFiles/test_mesh.dir/test_mesh.cpp.o"
+}
+]

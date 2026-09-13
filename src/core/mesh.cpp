@@ -106,7 +106,7 @@ PetscErrorCode CheckLayout(DM dm, PetscInt& M, PetscInt& N)
     PetscCheck(stencil == DMDA_STENCIL_BOX && width >= 1,
                comm, PETSC_ERR_ARG_WRONG,
                "Mesh validation requires a box stencil of width at least one");
-    PetscFunctionReturn(0);
+    PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 PetscErrorCode GenerateMesh(DM dm, Vec vertices, const MeshParam& mp,
@@ -146,7 +146,7 @@ PetscErrorCode GenerateMesh(DM dm, Vec vertices, const MeshParam& mp,
     }
     PetscCall(DMDAVecRestoreArrayDOF(dm, vertices, &a));
     PetscCall(ValidateMesh(dm, vertices));
-    PetscFunctionReturn(0);
+    PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 } // namespace
@@ -155,21 +155,21 @@ PetscErrorCode CreateFullMesh(DM dm, Vec vertices, const MeshParam& mp)
 {
     PetscFunctionBeginUser;
     PetscCall(GenerateMesh(dm, vertices, mp, MeshKind::Uniform));
-    PetscFunctionReturn(0);
+    PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 PetscErrorCode LogicRectMesh(DM dm, Vec vertices, const MeshParam& mp)
 {
     PetscFunctionBeginUser;
     PetscCall(GenerateMesh(dm, vertices, mp, MeshKind::Perturbed));
-    PetscFunctionReturn(0);
+    PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 PetscErrorCode RefineMesh(DM dm, Vec vertices, const MeshParam& mp)
 {
     PetscFunctionBeginUser;
     PetscCall(GenerateMesh(dm, vertices, mp, MeshKind::SineStretched));
-    PetscFunctionReturn(0);
+    PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 PetscErrorCode ValidateMesh(DM dm, Vec vertices)
@@ -212,6 +212,6 @@ PetscErrorCode ValidateMesh(DM dm, Vec vertices)
     PetscCheck(!globalBad, comm, PETSC_ERR_ARG_WRONG,
                "Mesh has non-real/non-finite coordinates or an inverted, "
                "degenerate, or nearly singular quadrilateral");
-    PetscFunctionReturn(0);
+    PetscFunctionReturn(PETSC_SUCCESS);
 }
 

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmantle_core.a CMakeFiles/mantle_core.dir/mesh.cpp.o
+/usr/bin/ranlib libmantle_core.a
