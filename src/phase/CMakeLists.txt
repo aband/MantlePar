@@ -9,3 +9,7 @@ target_include_directories(mantle_phase
 )
 
 target_compile_features(mantle_phase PUBLIC cxx_std_17)
+
+if(BUILD_TESTING)
+    add_subdirectory(test)
+endif()

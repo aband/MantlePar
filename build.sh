@@ -3,4 +3,4 @@ cmake -S . -B build \
   -DBUILD_TESTING=OFF \
   -DHDF5_ROOT=/home/renpo/system/hdf5-install
 
-cmake --build build --target export_mesh -j
+cmake --build build --parallel

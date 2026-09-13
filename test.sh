@@ -17,6 +17,6 @@ cmake --build build --parallel
 
 # Run every core test, including mesh_info and math_utils.
 ctest --test-dir build \
-  -R '^core_' \
+		  -R '^(core|phase)_' \
   --output-on-failure --no-tests=error
 
