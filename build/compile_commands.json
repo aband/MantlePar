@@ -1,0 +1,26 @@
+[
+{
+  "directory": "/home/renpo/Research/MantlePar/build/src/core",
+  "command": "/home/renpo/system/mpich-install/bin/mpicxx  -I/home/renpo/Research/MantlePar/src/core -isystem /home/renpo/system/petsc-install/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/mantle_core.dir/mesh.cpp.o -c /home/renpo/Research/MantlePar/src/core/mesh.cpp",
+  "file": "/home/renpo/Research/MantlePar/src/core/mesh.cpp",
+  "output": "src/core/CMakeFiles/mantle_core.dir/mesh.cpp.o"
+},
+{
+  "directory": "/home/renpo/Research/MantlePar/build/src/core",
+  "command": "/home/renpo/system/mpich-install/bin/mpicxx  -I/home/renpo/Research/MantlePar/src/core -isystem /home/renpo/system/petsc-install/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/mantle_core.dir/integral.cpp.o -c /home/renpo/Research/MantlePar/src/core/integral.cpp",
+  "file": "/home/renpo/Research/MantlePar/src/core/integral.cpp",
+  "output": "src/core/CMakeFiles/mantle_core.dir/integral.cpp.o"
+},
+{
+  "directory": "/home/renpo/Research/MantlePar/build/tools/mesh_export",
+  "command": "/home/renpo/system/mpich-install/bin/mpicxx  -I/home/renpo/Research/MantlePar/tools/mesh_export -I/home/renpo/Research/MantlePar/src/core -isystem /home/renpo/system/petsc-install/include -isystem /home/renpo/system/hdf5-install/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/mantle_mesh_output.dir/mesh_output.cpp.o -c /home/renpo/Research/MantlePar/tools/mesh_export/mesh_output.cpp",
+  "file": "/home/renpo/Research/MantlePar/tools/mesh_export/mesh_output.cpp",
+  "output": "tools/mesh_export/CMakeFiles/mantle_mesh_output.dir/mesh_output.cpp.o"
+},
+{
+  "directory": "/home/renpo/Research/MantlePar/build/tools/mesh_export",
+  "command": "/home/renpo/system/mpich-install/bin/mpicxx  -I/home/renpo/Research/MantlePar/tools/mesh_export -I/home/renpo/Research/MantlePar/src/core -isystem /home/renpo/system/petsc-install/include -O3 -DNDEBUG -std=c++17 -o CMakeFiles/export_mesh.dir/export_mesh.cpp.o -c /home/renpo/Research/MantlePar/tools/mesh_export/export_mesh.cpp",
+  "file": "/home/renpo/Research/MantlePar/tools/mesh_export/export_mesh.cpp",
+  "output": "tools/mesh_export/CMakeFiles/export_mesh.dir/export_mesh.cpp.o"
+}
+]

@@ -1,5 +1,6 @@
 add_library(mantle_core
     mesh.cpp
+	 integral.cpp
 )
 
 target_include_directories(mantle_core
