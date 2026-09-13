@@ -1,0 +1,67 @@
+Start testing: Sep 13 11:31 CEST
+----------------------------------------------------------
+1/4 Testing: core_mesh_serial
+1/4 Test: core_mesh_serial
+Command: "/home/renpo/Research/MantlePar/build/src/core/test/test_mesh"
+Directory: /home/renpo/Research/MantlePar/build/src/core/test
+"core_mesh_serial" start time: Sep 13 11:31 CEST
+Output:
+----------------------------------------------------------
+mesh tests passed
+<end of output>
+Test time =   1.55 sec
+----------------------------------------------------------
+Test Passed.
+"core_mesh_serial" end time: Sep 13 11:31 CEST
+"core_mesh_serial" time elapsed: 00:00:01
+----------------------------------------------------------
+
+2/4 Testing: core_mesh_mpi_2x1
+2/4 Test: core_mesh_mpi_2x1
+Command: "/home/renpo/system/mpich-install/bin/mpiexec" "-n" "2" "/home/renpo/Research/MantlePar/build/src/core/test/test_mesh" "-mesh_px" "2" "-mesh_py" "1"
+Directory: /home/renpo/Research/MantlePar/build/src/core/test
+"core_mesh_mpi_2x1" start time: Sep 13 11:31 CEST
+Output:
+----------------------------------------------------------
+mesh tests passed
+<end of output>
+Test time =   0.09 sec
+----------------------------------------------------------
+Test Passed.
+"core_mesh_mpi_2x1" end time: Sep 13 11:31 CEST
+"core_mesh_mpi_2x1" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/4 Testing: core_mesh_mpi_1x2
+3/4 Test: core_mesh_mpi_1x2
+Command: "/home/renpo/system/mpich-install/bin/mpiexec" "-n" "2" "/home/renpo/Research/MantlePar/build/src/core/test/test_mesh" "-mesh_px" "1" "-mesh_py" "2"
+Directory: /home/renpo/Research/MantlePar/build/src/core/test
+"core_mesh_mpi_1x2" start time: Sep 13 11:31 CEST
+Output:
+----------------------------------------------------------
+mesh tests passed
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"core_mesh_mpi_1x2" end time: Sep 13 11:31 CEST
+"core_mesh_mpi_1x2" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/4 Testing: core_mesh_mpi_2x2
+4/4 Test: core_mesh_mpi_2x2
+Command: "/home/renpo/system/mpich-install/bin/mpiexec" "-n" "4" "/home/renpo/Research/MantlePar/build/src/core/test/test_mesh" "-mesh_px" "2" "-mesh_py" "2"
+Directory: /home/renpo/Research/MantlePar/build/src/core/test
+"core_mesh_mpi_2x2" start time: Sep 13 11:31 CEST
+Output:
+----------------------------------------------------------
+mesh tests passed
+<end of output>
+Test time =   0.10 sec
+----------------------------------------------------------
+Test Passed.
+"core_mesh_mpi_2x2" end time: Sep 13 11:31 CEST
+"core_mesh_mpi_2x2" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 13 11:31 CEST

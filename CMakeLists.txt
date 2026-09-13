@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.20)
-project(MantleSolver LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,10 +20,19 @@ if (FORTRAN_COMPILER)
   enable_language(Fortran)
 endif (FORTRAN_COMPILER)
 
+project(MantleSolver LANGUAGES C CXX)
+
 # Creates BUILD_TESTING and enables CTest when it is ON.
 include(CTest)
 
 find_package(PkgConfig REQUIRED)
+
+# Use the launcher from the same MPI installation as PETSc's compiler.
+get_filename_component(PETSC_MPI_BIN "${C_COMPILER}" DIRECTORY)
+
+set(MPIEXEC_EXECUTABLE "${PETSC_MPI_BIN}/mpiexec"
+    CACHE FILEPATH "MPI launcher matching PETSc" FORCE)
+
 find_package(MPI REQUIRED COMPONENTS C CXX)
 
 pkg_search_module(PETSC REQUIRED IMPORTED_TARGET PETSc petsc)
