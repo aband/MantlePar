@@ -12,8 +12,11 @@ cmake --fresh -S . -B build \
   -DBUILD_TESTING=ON \
   -DHDF5_ROOT=/home/renpo/system/hdf5-install
 
-cmake --build build --target test_mesh test_integral -j
+# Build all default targets, including every registered test executable.
+cmake --build build --parallel
 
+# Run every core test, including mesh_info and math_utils.
 ctest --test-dir build \
-  -R '^core_(mesh|integral)_' \
+  -R '^core_' \
   --output-on-failure --no-tests=error
+

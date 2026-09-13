@@ -41,8 +41,8 @@ pkg_check_modules(LAPACKE REQUIRED IMPORTED_TARGET lapacke)
 # Register subsequent modules as we reconstruct them:
 add_subdirectory(src/core)
 add_subdirectory(tools/mesh_export)
+add_subdirectory(src/phase)
 
-# add_subdirectory(src/phase)
 # add_subdirectory(src/io)
 # add_subdirectory(src/mfem)
 # add_subdirectory(src/mlweno_array)
