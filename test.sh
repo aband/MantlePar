@@ -1,9 +1,9 @@
+#!/usr/bin/env bash
 #cd /home/renpo/Research/MantlePar
 #cmake --fresh -S . -B build -DBUILD_TESTING=ON
 #cmake --build build --target test_mesh
 #ctest --test-dir build -R '^core_mesh_' --output-on-failure
 
-#!/usr/bin/env bash
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 

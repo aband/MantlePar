@@ -42,6 +42,7 @@ pkg_check_modules(LAPACKE REQUIRED IMPORTED_TARGET lapacke)
 add_subdirectory(src/core)
 add_subdirectory(tools/mesh_export)
 add_subdirectory(src/phase)
+add_subdirectory(tools/phase_export)
 
 # add_subdirectory(src/io)
 # add_subdirectory(src/mfem)
