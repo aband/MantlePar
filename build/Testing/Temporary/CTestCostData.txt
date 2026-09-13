@@ -1,8 +1,0 @@
-core_mesh_serial 1 1.63356
-core_mesh_mpi_2x1 0 0
-core_mesh_mpi_1x2 0 0
-core_mesh_mpi_2x2 0 0
----
-core_mesh_mpi_2x1
-core_mesh_mpi_1x2
-core_mesh_mpi_2x2
