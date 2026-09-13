@@ -1,1 +1,0 @@
-/home/renpo/system/mpich-install/bin/mpicxx CMakeFiles/test_mesh.dir/test_mesh.cpp.o -o test_mesh  -Wl,-rpath,/home/renpo/system/petsc-install/lib ../libmantle_core.a /home/renpo/system/petsc-install/lib/libpetsc.so /usr/lib/x86_64-linux-gnu/liblapacke.so 
