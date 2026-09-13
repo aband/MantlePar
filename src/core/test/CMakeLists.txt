@@ -23,3 +23,5 @@ endif()
 
  include("${CMAKE_CURRENT_LIST_DIR}/integral_tests.cmake")
  include("${CMAKE_CURRENT_LIST_DIR}/utility_tests.cmake")
+ include("${CMAKE_CURRENT_LIST_DIR}/field_initialization_tests.cmake")
+

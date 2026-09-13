@@ -3,6 +3,7 @@ add_library(mantle_core
 	 integral.cpp
 	 mesh_info.cpp
 	 math_utils.cpp
+	 field_initialization.cpp
 )
 
 target_include_directories(mantle_core
