@@ -20,3 +20,5 @@ if(MPIEXEC_EXECUTABLE)
         )
     endforeach()
 endif()
+
+ include("${CMAKE_CURRENT_LIST_DIR}/integral_tests.cmake")
