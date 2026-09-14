@@ -44,6 +44,7 @@ add_subdirectory(tools/mesh_export)
 add_subdirectory(src/phase)
 add_subdirectory(tools/phase_export)
 add_subdirectory(src/mfem)
+add_subdirectory(tools/brmixed_export)
 
 # add_subdirectory(src/mlweno_array)
 # add_subdirectory(src/transport_array)
