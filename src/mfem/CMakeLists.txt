@@ -1,7 +1,7 @@
 # Included by the repository's root CMakeLists.txt after src/core.
 add_library(mantle_mfem
     basis.cpp
-    basis.h
+	 brmixed.cpp
 )
 
 target_include_directories(mantle_mfem
