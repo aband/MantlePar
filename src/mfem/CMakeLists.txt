@@ -3,6 +3,7 @@ add_library(mantle_mfem
     basis.cpp
 	 brmixed.cpp
 	 hdivmixed.cpp
+	 dof_map.cpp
 )
 
 target_include_directories(mantle_mfem

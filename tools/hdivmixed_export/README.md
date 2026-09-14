@@ -40,7 +40,7 @@ Serial:
 
 Parallel, with the MPI launcher matching PETSc:
 
-    mpiexec -n 2 ./build/tools/hdivmixed_export/export_hdivmixed \
+    /home/renpo/system/mpich-install/bin/mpiexec -n 2 ./build/tools/hdivmixed_export/export_hdivmixed \
         -expected_ranks 2 \
         -output output/hdivmixed/hdivmixed
 
