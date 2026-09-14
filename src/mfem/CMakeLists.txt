@@ -16,3 +16,6 @@ target_link_libraries(mantle_mfem
     PUBLIC mantle_core
 )
 
+if(BUILD_TESTING)
+    add_subdirectory(test)
+endif()
