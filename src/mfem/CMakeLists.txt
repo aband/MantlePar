@@ -6,6 +6,7 @@ add_library(mantle_mfem
 	 dof_map.cpp
 	 local_matrix.cpp
 	 assembly.cpp
+	 boundary_conditions.cpp
 )
 
 target_include_directories(mantle_mfem
