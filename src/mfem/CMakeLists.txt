@@ -7,6 +7,8 @@ add_library(mantle_mfem
 	 local_matrix.cpp
 	 assembly.cpp
 	 boundary_conditions.cpp
+	 linear_system.cpp
+	 linear_solver.cpp
 )
 
 target_include_directories(mantle_mfem
