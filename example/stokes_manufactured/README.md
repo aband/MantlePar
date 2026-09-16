@@ -6,6 +6,12 @@ the supplied Python helpers in `MantlePar/example/common/`. The helpers are
 reusable for subsequent cases. This example needs no additional C++ source,
 CMake registration, or CTest entry.
 
+The latest shared-driver update changes only the signed vertical forcing
+in the column reference. This example still uses the trigonometric
+`manufactured` reference and the same `mms_stokes_*` callbacks. Its
+physical problem, mesh study and solver settings are unchanged. The
+two wet-cell cutoffs in the input now state the reader defaults explicitly.
+
 ## Problem and exact solution
 
 The domain is the unit square. The constant porosity is `phi = 0.04`.
@@ -49,13 +55,11 @@ pressure nullspace; the input uses `pressure_nullspace: none`.
 
 ## Build and run
 
-Use the existing PETSc/MPICH compiler configuration. The driver requires
-yaml-cpp and parallel HDF5 built with the same MPI as PETSc. Register
-`src/core/input.cpp` with `mantle_core` and the root-level `mantle_driver`
-target as previously discussed, then run from the MantlePar root:
+Use your existing PETSc/MPICH and parallel-HDF5 build configuration.
+After replacing the shared driver, rebuild the existing target from the
+MantlePar root:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMANTLE_BUILD_DRIVER=ON -DBUILD_TESTING=OFF
 cmake --build build --target mantle_driver -j
 ```
 
@@ -89,7 +93,9 @@ use amplitude `0.15` and a fixed seed; the outer boundary remains fixed.
 Assembly uses five Gauss points per coordinate direction and five per edge.
 Error integration uses seven points per coordinate direction.
 
-For one initial rectangular solve, set `studies.convergence.enabled: false`.
+For one initial rectangular solve, set both
+`studies.convergence.enabled: false` and `output.plots.convergence: false`.
+The input reader rejects a convergence plot when the study is disabled.
 For one quadrilateral solve, also set `mesh.family: perturbed_quadrilateral`.
 The convergence plot requires an enabled study; profiles remain available
 for a single solve. With the study enabled, its `mesh_families` list selects
@@ -150,7 +156,7 @@ is not automatically removed.
 This case solves steady Stokes only. Transport, phase evolution and external
 coupling remain disabled.
 
-## Verification of this example
+## Previous numerical verification
 
 The supplied YAML was run with the previously generated shared driver and
 PETSc 3.23 on one MPICH rank. All six solves passed the outer, inner-solver,
@@ -170,3 +176,11 @@ environment required the existing single-process HDF5 adapter; collective
 HDF5 output and multiple MPI ranks were not verified here. The adapter is not
 included in this package. Your normal driver build continues to require
 parallel HDF5.
+
+## Check of this update
+
+The YAML callback names, active fields, output filenames and profile columns
+were checked against the updated shared driver and the schema-v2 input reader.
+The shared Python helpers retain powers-of-ten log-log convergence axes.
+The numerical results above are from the earlier driver; this update was not
+rerun with PETSc/MPI or parallel HDF5 in the current environment.

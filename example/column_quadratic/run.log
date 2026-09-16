@@ -1,0 +1,11 @@
+/home/renpo/system/mpich-install/bin/mpiexec -n 1 /home/renpo/Research/MantlePar/build/mantle_driver -input /home/renpo/Research/MantlePar/example/column_quadratic/input.yaml
+[0]PETSC ERROR: --------------------- Error Message --------------------------------------------------------------
+[0]PETSC ERROR: Missing or incorrect user input
+[0]PETSC ERROR: Input reader (rank 0): Column reference uses Stokes forcing [0,1] in the assembled sign convention.
+[0]PETSC ERROR: See https://petsc.org/release/faq/ for trouble shooting.
+[0]PETSC ERROR: PETSc Release Version 3.23.0, unknown
+[0]PETSC ERROR: /home/renpo/Research/MantlePar/build/mantle_driver with 1 MPI process(es) and PETSC_ARCH  on renpo-ThinkPad-P16-Gen-2 by renpo Wed Sep 16 22:37:48 2026
+[0]PETSC ERROR: Configure options: PETSC_ARCH=linux-opt --prefix=/home/renpo/system/petsc-install --with-mpi-dir=/home/renpo/system/mpich-install --with-blaslapack-dir=/home/renpo/system/lapack-install
+[0]PETSC ERROR: #1 AgreeFailure() at /home/renpo/Research/MantlePar/src/core/input.cpp:1185
+[0]PETSC ERROR: #2 ReadInput() at /home/renpo/Research/MantlePar/src/core/input.cpp:1238
+[0]PETSC ERROR: #3 RunFromCommandLine() at /home/renpo/Research/MantlePar/driver.cpp:1300

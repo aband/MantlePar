@@ -1,0 +1,242 @@
+# Closed-column benchmark: reviewed.pdf Section 3.7.
+# Requires the supplied driver.cpp update for signed vertical forcing.
+# Two columns, Ny = 20, 40, 80, 160, both mesh families.
+# Use plot_column.py: rates are measured against vertical spacing, not cell diameter.
+schema_version: 2
+simulation:
+  name: column_quadratic
+  mode: steady
+parallel:
+  launcher: /home/renpo/system/mpich-install/bin/mpiexec
+  ranks: 1
+  process_grid:
+  - 1
+  - 1
+mesh:
+  family: rectangular
+  domain:
+    x:
+    - -0.2
+    - 0.2
+    y:
+    - -2.0
+    - 2.0
+  cells:
+  - 2
+  - 20
+  perturbation:
+    amplitude: 0.15
+    seed: 20260916
+    boundary_vertices: fixed
+quadrature:
+  cell_points_per_axis: 8
+  edge_points: 8
+porosity:
+  source: prescribed_function
+  prescribed_function:
+    name: quadratic_below_interface
+    parameters:
+      coefficient: 0.01
+      interface_y: 0.0
+      value_above_interface: 0.0
+  cell_average: physical_quadrature
+boundary_regions:
+  physical_endpoint_policy: require_boundary_vertex
+  coordinate_tolerance: 1.0e-12
+  definitions:
+    left_wall:
+      side: left
+      selector:
+        mode: whole_side
+    right_wall:
+      side: right
+      selector:
+        mode: whole_side
+flow:
+  enabled: true
+  system: coupled_stokes_darcy
+  porosity: porosity
+  parameters:
+    formulation: legacy_rescaled
+    theta: 0.0
+    darcy_compaction_average_cutoff: 1.0e-15
+    coupling_average_cutoff: 1.0e-16
+  forcing:
+    stokes:
+      name: constant
+      parameters:
+        value:
+        - 0.0
+        - -1.0
+    darcy:
+      name: constant
+      parameters:
+        value:
+        - 0.0
+        - 0.0
+    stokes_pressure_source:
+      name: constant
+      parameters:
+        value: 0.0
+    darcy_pressure_source:
+      name: constant
+      parameters:
+        value: 0.0
+  boundary_conditions:
+    value_absolute_tolerance: 1.0e-12
+    value_relative_tolerance: 1.0e-10
+    stokes:
+      components: cartesian
+      default:
+        x:
+          type: dirichlet
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+        y:
+          type: dirichlet
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+      segments:
+      - region: left_wall
+        priority: 10
+        y:
+          type: neumann
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+      - region: right_wall
+        priority: 10
+        y:
+          type: neumann
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+    darcy:
+      dirichlet_variable: assembled_normal_velocity
+      neumann_variable: pressure_potential
+      default:
+        type: dirichlet
+        value:
+          name: constant
+          parameters:
+            value: 0.0
+      segments: []
+  linear_system:
+    sign_convention: legacy
+    pressure_nullspace: provided
+    pressure_modes:
+      stokes: 1.0
+      darcy: sqrt_cell_average_porosity
+    project_rhs: false
+  solver:
+    options_prefix: column_
+    ksp: fgmres
+    preconditioner: schur
+    relative_tolerance: 1.0e-10
+    absolute_tolerance: 1.0e-12
+    divergence_tolerance: 100000000.0
+    maximum_iterations: 2000
+    initial_guess_nonzero: false
+    velocity:
+      ksp: cg
+      pc: jacobi
+      relative_tolerance: 1.0e-12
+      absolute_tolerance: 1.0e-14
+      divergence_tolerance: 100000000.0
+      maximum_iterations: 2000
+    pressure:
+      ksp: cg
+      pc: none
+      relative_tolerance: 1.0e-12
+      absolute_tolerance: 1.0e-14
+      divergence_tolerance: 100000000.0
+      maximum_iterations: 2000
+    error_if_not_converged: true
+    require_subsolver_convergence: true
+    require_true_residual: true
+    remove_pressure_nullspace: true
+transport:
+  enabled: false
+phase:
+  enabled: false
+coupling:
+  backend: internal
+  internal:
+    scheme: single_pass
+    update_order:
+    - flow
+restart:
+  enabled: false
+studies:
+  convergence:
+    enabled: true
+    mesh_families:
+    - rectangular
+    - perturbed_quadrilateral
+    levels: 4
+    refinement_factor:
+    - 1
+    - 2
+    h_measure: maximum_cell_diameter
+    reference:
+      source: column_velocity
+      fit_interface: true
+    errors:
+      fields:
+      - stokes_velocity
+      - darcy_segregation_flux
+      norm: l2
+      cell_points_per_axis: 7
+      evaluation: common_physical_points
+output:
+  directory: output/{mesh_family}/level_{level}
+  fields:
+    format: hdf5_xdmf
+    file: fields_{step}.h5
+    xdmf_series: fields.xdmf
+    parallel_hdf5: true
+    quantities:
+    - porosity
+    - stokes_velocity
+    - darcy_velocity
+    - darcy_segregation_flux
+    - stokes_pressure_assembled
+    - darcy_pressure_assembled
+    - darcy_pressure_potential
+  profiles:
+    enabled: true
+    file: profiles_{step}.csv
+    start:
+    - 0.0
+    - -2.0
+    end:
+    - 0.0
+    - 2.0
+    points: 801
+    fields:
+    - porosity
+    - stokes_velocity
+    - darcy_segregation_flux
+    - stokes_pressure_assembled
+    - darcy_pressure_assembled
+  convergence_table: csv
+  solver_report: csv
+  diagnostics:
+  - true_residual
+  - subsolver_convergence
+  - discrete_mass_balance
+  plots:
+    convergence: true
+    profiles: true
+    formats:
+    - png
+    - pdf
+  schedule:
+    steady: after_solve
+  save_resolved_input: true

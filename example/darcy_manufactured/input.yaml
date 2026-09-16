@@ -1,9 +1,9 @@
-# Run with the shared MantlePar/driver.cpp and schema-v2 core input reader.
-# All relative paths are resolved from this input.yaml directory.
+# Darcy manufactured solution for the shared MantlePar/driver.cpp.
+# All paths are relative to this file. Reuses the existing example/common helpers.
 schema_version: 2
 
 simulation:
-  name: stokes_manufactured
+  name: darcy_manufactured
   mode: steady
 
 parallel:
@@ -45,55 +45,43 @@ boundary_regions:
 
 flow:
   enabled: true
-  system: stokes
+  system: darcy
   porosity: porosity
   parameters:
     formulation: legacy_rescaled
     theta: 0.0
-    # Explicit defaults also used by the driver's manufactured-data validation.
     darcy_compaction_average_cutoff: 1.0e-15
     coupling_average_cutoff: 1.0e-16
 
-  # These named analytic functions are already implemented in driver.cpp.
+  # The driver evaluates these analytic formulas independently of assembly.
   forcing:
-    stokes:
-      name: mms_stokes_force
+    darcy:
+      name: mms_darcy_force
       parameters: {}
-    stokes_pressure_source:
-      name: mms_stokes_source
+    darcy_pressure_source:
+      name: mms_darcy_source
       parameters: {}
 
   boundary_conditions:
     value_absolute_tolerance: 1.0e-12
     value_relative_tolerance: 1.0e-10
-    stokes:
-      components: cartesian
-      # Left, right and bottom: exact velocity.
+    darcy:
+      dirichlet_variable: assembled_normal_velocity
+      neumann_variable: assembled_pressure
+      # Left, right and bottom: exact outward normal assembled velocity.
       default:
-        x:
-          type: dirichlet
-          value:
-            name: mms_stokes_velocity_x
-            parameters: {}
-        y:
-          type: dirichlet
-          value:
-            name: mms_stokes_velocity_y
-            parameters: {}
-      # Top: exact traction, overriding the default on this side.
+        type: dirichlet
+        value:
+          name: mms_darcy_normal_velocity
+          parameters: {}
+      # Top: exact assembled pressure, natural in the mixed formulation.
       segments:
         - region: top
           priority: 10
-          x:
-            type: neumann
-            value:
-              name: mms_stokes_traction_x
-              parameters: {}
-          y:
-            type: neumann
-            value:
-              name: mms_stokes_traction_y
-              parameters: {}
+          type: neumann
+          value:
+            name: mms_darcy_pressure
+            parameters: {}
 
   linear_system:
     sign_convention: legacy
@@ -101,7 +89,7 @@ flow:
     project_rhs: false
 
   solver:
-    options_prefix: stokes_manufactured_
+    options_prefix: darcy_manufactured_
     ksp: fgmres
     preconditioner: schur
     relative_tolerance: 1.0e-10
@@ -153,7 +141,7 @@ studies:
       source: manufactured
       solution: trigonometric
     errors:
-      fields: [stokes_velocity, stokes_pressure_assembled]
+      fields: [darcy_velocity, darcy_pressure_assembled]
       norm: l2
       cell_points_per_axis: 7
       evaluation: common_physical_points
@@ -165,14 +153,19 @@ output:
     file: fields_{step}.h5
     xdmf_series: fields.xdmf
     parallel_hdf5: true
-    quantities: [porosity, stokes_velocity, stokes_pressure_assembled]
+    quantities:
+      - porosity
+      - darcy_velocity
+      - darcy_pressure_assembled
+      - darcy_pressure_potential
+      - darcy_segregation_flux
   profiles:
     enabled: true
     file: profiles_{step}.csv
-    start: [0.5, 0.0]
-    end: [0.5, 1.0]
+    start: [0.25, 0.0]
+    end: [0.25, 1.0]
     points: 201
-    fields: [stokes_velocity, stokes_pressure_assembled]
+    fields: [darcy_velocity, darcy_pressure_assembled]
   convergence_table: csv
   solver_report: csv
   diagnostics: [true_residual, subsolver_convergence, discrete_mass_balance]

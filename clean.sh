@@ -30,6 +30,7 @@ for arg in "$@"; do
         -h|--help)
             printf 'Usage: bash clean.sh [--dry-run]\n'
             printf 'Remove the generated paths listed in CLEAN_TARGETS.\n'
+            printf 'Also remove directories named output anywhere under example/.\n'
             printf 'Paths are relative to this script, regardless of your working directory.\n'
             exit 0
             ;;
@@ -54,9 +55,9 @@ for target in "${CLEAN_TARGETS[@]}"; do
     esac
 done
 
-for target in "${CLEAN_TARGETS[@]}"; do
-    path="$repo_root/$target"
-    [[ -e "$path" || -L "$path" ]] || continue
+remove_path() {
+    local path="$1"
+    [[ -e "$path" || -L "$path" ]] || return 0
     if [[ "$dry_run" == true ]]; then
         printf 'Would remove: %s\n' "$path"
     else
@@ -64,7 +65,22 @@ for target in "${CLEAN_TARGETS[@]}"; do
         # No trailing slash: a symlink is removed without following its target.
         rm -rf -- "$path"
     fi
+}
+
+for target in "${CLEAN_TARGETS[@]}"; do
+    remove_path "$repo_root/$target"
 done
+
+# Discover case outputs automatically as new example folders are added.
+# Match the exact name output. Do not follow symlinked parent directories;
+# an output symlink itself is removed without deleting its target.
+example_root="$repo_root/example"
+if [[ -d "$example_root" && ! -L "$example_root" ]]; then
+    while IFS= read -r -d '' path; do
+        remove_path "$path"
+    done < <(find -P "$example_root" -mindepth 1 \
+        \( -type d -o -type l \) -name output -prune -print0)
+fi
 
 if [[ "$dry_run" == true ]]; then
     printf 'Preview complete; nothing was removed.\n'

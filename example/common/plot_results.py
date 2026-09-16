@@ -8,7 +8,31 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import LogFormatterMathtext, LogLocator, NullFormatter
 import numpy as np
+
+def format_log_axes(ax):
+    """Show full decades, with powers of ten as the only tick labels."""
+    ax.set_xscale("log", base=10)
+    ax.set_yscale("log", base=10)
+    for axis, bounds, set_limits in (
+        (ax.xaxis, ax.dataLim.intervalx, ax.set_xlim),
+        (ax.yaxis, ax.dataLim.intervaly, ax.set_ylim),
+    ):
+        lower, upper = bounds
+        if math.isfinite(lower) and math.isfinite(upper) and 0 < lower <= upper:
+            first = math.floor(math.log10(lower))
+            last = math.ceil(math.log10(upper))
+            if first == last:
+                first -= 1
+                last += 1
+            set_limits(10.0 ** first, 10.0 ** last)
+        axis.set_major_locator(LogLocator(base=10, subs=(1.0,), numticks=12))
+        axis.set_major_formatter(LogFormatterMathtext(base=10, labelOnlyBase=True))
+        axis.set_minor_locator(LogLocator(base=10, subs=np.arange(2, 10), numticks=100))
+        axis.set_minor_formatter(NullFormatter())
+    ax.grid(True, which="major", linestyle="-", alpha=0.3)
+    ax.grid(True, which="minor", linestyle=":", alpha=0.15)
 
 def resolved(path, config, filename, family, level):
     substitutions = dict(mesh_family=family, level=level, step=0)
@@ -75,8 +99,9 @@ def plot_case(path, config):
                 if not np.any(positive):
                     continue
                 ax.loglog(h[positive], error[positive], "o-", label=family.replace("_", " "))
-            ax.set(xlabel="Maximum cell diameter h", ylabel="L2 error", title=name[3:].replace("_", " "))
-            ax.grid(True, which="both", alpha=.25); ax.legend(fontsize=8)
+            format_log_axes(ax)
+            ax.set(xlabel=r"Maximum cell diameter $h$", ylabel=r"$L^2$ error", title=name[3:].replace("_", " "))
+            ax.legend(fontsize=8)
         ref = records[0]["reference"]
         fig.suptitle(config["simulation"]["name"].replace("_", " ") + f" — reference: {ref}")
         fig.tight_layout()

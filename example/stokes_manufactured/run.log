@@ -1,0 +1,13 @@
+/home/renpo/system/mpich-install/bin/mpiexec -n 1 /home/renpo/Research/MantlePar/build/mantle_driver -input /home/renpo/Research/MantlePar/example/stokes_manufactured/input.yaml
+stokes_manufactured: rectangular level 0, 4 x 4 cells
+  iterations=1, true relative residual=1.261e-12
+stokes_manufactured: rectangular level 1, 8 x 8 cells
+  iterations=1, true relative residual=1.239e-12
+stokes_manufactured: rectangular level 2, 16 x 16 cells
+  iterations=1, true relative residual=2.156e-12
+stokes_manufactured: perturbed_quadrilateral level 0, 4 x 4 cells
+  iterations=1, true relative residual=1.671e-12
+stokes_manufactured: perturbed_quadrilateral level 1, 8 x 8 cells
+  iterations=1, true relative residual=1.947e-12
+stokes_manufactured: perturbed_quadrilateral level 2, 16 x 16 cells
+  iterations=1, true relative residual=2.009e-12
