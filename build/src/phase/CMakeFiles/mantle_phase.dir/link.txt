@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmantle_phase.a CMakeFiles/mantle_phase.dir/eutectic_rescaled.cpp.o
+/usr/bin/ranlib libmantle_phase.a

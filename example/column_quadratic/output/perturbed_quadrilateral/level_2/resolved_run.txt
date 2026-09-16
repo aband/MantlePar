@@ -1,0 +1,13 @@
+source=/home/renpo/Research/MantlePar/example/column_quadratic/input.yaml
+system=coupled_stokes_darcy
+family=perturbed_quadrilateral
+level=2
+cells=2,80
+ranks=1
+process_grid=1,1
+cell_gauss_points_per_axis=8
+edge_gauss_points=8
+reference=column_velocity
+field_location=cell_center; porosity=physical_cell_average
+boundary_region.left_wall=[0,80)
+boundary_region.right_wall=[0,80)

@@ -1,0 +1,17 @@
+/home/renpo/system/mpich-install/bin/mpiexec -n 1 /home/renpo/Research/MantlePar/build/mantle_driver -input /home/renpo/Research/MantlePar/example/column_quadratic/input.yaml
+column_quadratic: rectangular level 0, 2 x 20 cells
+  iterations=1, true relative residual=4.066e-13
+column_quadratic: rectangular level 1, 2 x 40 cells
+  iterations=1, true relative residual=4.558e-13
+column_quadratic: rectangular level 2, 2 x 80 cells
+  iterations=1, true relative residual=4.630e-13
+column_quadratic: rectangular level 3, 2 x 160 cells
+  iterations=1, true relative residual=1.199e-12
+column_quadratic: perturbed_quadrilateral level 0, 2 x 20 cells
+  iterations=1, true relative residual=7.203e-13
+column_quadratic: perturbed_quadrilateral level 1, 2 x 40 cells
+  iterations=1, true relative residual=8.222e-13
+column_quadratic: perturbed_quadrilateral level 2, 2 x 80 cells
+  iterations=1, true relative residual=8.185e-13
+column_quadratic: perturbed_quadrilateral level 3, 2 x 160 cells
+  iterations=1, true relative residual=1.219e-12

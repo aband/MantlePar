@@ -1,0 +1,2 @@
+family,level,converged,ksp,pc,reason,iterations,true_residual,relative_true_residual,true_residual_threshold,subsolvers_converged,seconds
+perturbed_quadrilateral,3,1,fgmres,fieldsplit,3,1,1.235732817419842e-13,1.2190300247757263e-12,1.0137017073448939e-11,1,18.806737749

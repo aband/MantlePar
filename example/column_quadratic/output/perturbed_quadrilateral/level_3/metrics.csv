@@ -1,0 +1,2 @@
+family,level,nx,ny,h,reference,stokes_mass_residual_linf,darcy_mass_residual_linf,l2_darcy_segregation_flux,l2_stokes_velocity
+perturbed_quadrilateral,3,2,160,0.23160327189749763,column_velocity,7.6660996941518638e-15,3.0544360443696128e-14,3.4520203453637712e-07,3.722686743383239e-05

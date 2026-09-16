@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmantle_brmixed_output.a CMakeFiles/mantle_brmixed_output.dir/brmixed_output.cpp.o
+/usr/bin/ranlib libmantle_brmixed_output.a

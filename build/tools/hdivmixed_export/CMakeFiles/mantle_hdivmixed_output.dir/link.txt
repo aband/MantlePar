@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmantle_hdivmixed_output.a CMakeFiles/mantle_hdivmixed_output.dir/hdivmixed_output.cpp.o
+/usr/bin/ranlib libmantle_hdivmixed_output.a
