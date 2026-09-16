@@ -31,6 +31,7 @@ for arg in "$@"; do
             printf 'Usage: bash clean.sh [--dry-run]\n'
             printf 'Remove the generated paths listed in CLEAN_TARGETS.\n'
             printf 'Also remove directories named output anywhere under example/.\n'
+            printf 'Also remove *.log files throughout the repository, excluding .git/.\n'
             printf 'Paths are relative to this script, regardless of your working directory.\n'
             exit 0
             ;;
@@ -81,6 +82,14 @@ if [[ -d "$example_root" && ! -L "$example_root" ]]; then
     done < <(find -P "$example_root" -mindepth 1 \
         \( -type d -o -type l \) -name output -prune -print0)
 fi
+
+# Remove log files throughout the repository, including every example case.
+# Keep Git metadata and do not follow directory symlinks. Log symlinks
+# themselves are removed without deleting their targets.
+while IFS= read -r -d '' path; do
+    remove_path "$path"
+done < <(find -P "$repo_root" -name .git -prune -o \
+    \( -type f -o -type l \) -name '*.log' -print0)
 
 if [[ "$dry_run" == true ]]; then
     printf 'Preview complete; nothing was removed.\n'

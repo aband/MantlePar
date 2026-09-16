@@ -276,9 +276,8 @@ in::ReadInputOptions ReaderOptions()
                     "Column reference requires a dry region above the interface.");
         }
         const auto& force=c.flow.stokesForce;
-        Require(force.name=="constant" && force.parameters.At("value").sequence[0].AsReal()==0 &&
-                force.parameters.At("value").sequence[1].AsReal()==1,
-                "Column reference uses Stokes forcing [0,1] in the assembled sign convention.");
+        Require(force.name=="constant" && force.parameters.At("value").sequence[0].AsReal()==0,
+                "Column reference requires constant vertical Stokes forcing [0,gy].");
         Require(c.flow.darcyForce.name=="constant" &&
                 c.flow.darcyForce.parameters.At("value").sequence[0].AsReal()==0 &&
                 c.flow.darcyForce.parameters.At("value").sequence[1].AsReal()==0,
@@ -456,7 +455,10 @@ Values Exact(const in::InputConfig& c,const Point& p)
 {
     Values out;
     if(c.convergence.referenceSource=="column_velocity") {
-        const double u=static_cast<double>(ColumnFlux(c,p.p[1]));
+        // ColumnFlux is the unit-upward-force reference. The linear problem
+        // scales with the signed forcing, including legacy downward gravity.
+        const double gravity=c.flow.stokesForce.parameters.At("value").sequence[1].AsReal();
+        const double u=gravity*static_cast<double>(ColumnFlux(c,p.p[1]));
         const double phi=Porosity(c,p);
         out.stokes=Point{{0,-u}};out.darcy=Point{{0,phi>0?u/phi:0}};out.porosity=phi;
     } else {
