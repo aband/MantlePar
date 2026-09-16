@@ -1081,3 +1081,203 @@ events:
         
       exitCode: 2
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindMPI.cmake:1672 (_MPI_try_staged_settings)"
+      - "CMakeLists.txt:36 (find_package)"
+    description: "The MPI test test_mpi for CXX in mode MPICXX"
+    directories:
+      source: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-Ltj0OR"
+      binary: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-Ltj0OR"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_MPICXX"
+      cached: true
+      stdout: |
+        Change Dir: '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-Ltj0OR'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_e69d9/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_e69d9.dir/build.make CMakeFiles/cmTC_e69d9.dir/build
+        gmake[1]: Entering directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-Ltj0OR'
+        Building CXX object CMakeFiles/cmTC_e69d9.dir/test_mpi.cpp.o
+        /home/renpo/system/mpich-install/bin/mpicxx   -std=c++17 -o CMakeFiles/cmTC_e69d9.dir/test_mpi.cpp.o -c /home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-Ltj0OR/test_mpi.cpp
+        Linking CXX executable cmTC_e69d9
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e69d9.dir/link.txt --verbose=1
+        /home/renpo/system/mpich-install/bin/mpicxx CMakeFiles/cmTC_e69d9.dir/test_mpi.cpp.o -o cmTC_e69d9 
+        gmake[1]: Leaving directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-Ltj0OR'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:238 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:608 (_HDF5_test_regular_compiler_C)"
+      - "tools/mesh_export/CMakeLists.txt:4 (find_package)"
+    directories:
+      source: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-81jKr1"
+      binary: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-81jKr1"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "HDF5_C_COMPILER_NO_INTERROGATE"
+      cached: true
+      stdout: |
+        Change Dir: '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-81jKr1'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d4dbc/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_d4dbc.dir/build.make CMakeFiles/cmTC_d4dbc.dir/build
+        gmake[1]: Entering directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-81jKr1'
+        Building C object CMakeFiles/cmTC_d4dbc.dir/cmake_hdf5_test.c.o
+        /home/renpo/system/mpich-install/bin/mpicc    -o CMakeFiles/cmTC_d4dbc.dir/cmake_hdf5_test.c.o -c /home/renpo/Research/MantlePar/build/tools/mesh_export/CMakeFiles/hdf5/cmake_hdf5_test.c
+        /home/renpo/Research/MantlePar/build/tools/mesh_export/CMakeFiles/hdf5/cmake_hdf5_test.c:1:10: fatal error: hdf5.h: No such file or directory
+            1 | #include <hdf5.h>
+              |          ^~~~~~~~
+        compilation terminated.
+        gmake[1]: *** [CMakeFiles/cmTC_d4dbc.dir/build.make:78: CMakeFiles/cmTC_d4dbc.dir/cmake_hdf5_test.c.o] Error 1
+        gmake[1]: Leaving directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-81jKr1'
+        gmake: *** [Makefile:127: cmTC_d4dbc/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:238 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:608 (_HDF5_test_regular_compiler_C)"
+      - "tools/phase_export/CMakeLists.txt:4 (find_package)"
+    directories:
+      source: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-yZRCXR"
+      binary: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-yZRCXR"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "HDF5_C_COMPILER_NO_INTERROGATE"
+      cached: true
+      stdout: |
+        Change Dir: '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-yZRCXR'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_0b9b3/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_0b9b3.dir/build.make CMakeFiles/cmTC_0b9b3.dir/build
+        gmake[1]: Entering directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-yZRCXR'
+        Building C object CMakeFiles/cmTC_0b9b3.dir/cmake_hdf5_test.c.o
+        /home/renpo/system/mpich-install/bin/mpicc    -o CMakeFiles/cmTC_0b9b3.dir/cmake_hdf5_test.c.o -c /home/renpo/Research/MantlePar/build/tools/phase_export/CMakeFiles/hdf5/cmake_hdf5_test.c
+        /home/renpo/Research/MantlePar/build/tools/phase_export/CMakeFiles/hdf5/cmake_hdf5_test.c:1:10: fatal error: hdf5.h: No such file or directory
+            1 | #include <hdf5.h>
+              |          ^~~~~~~~
+        compilation terminated.
+        gmake[1]: *** [CMakeFiles/cmTC_0b9b3.dir/build.make:78: CMakeFiles/cmTC_0b9b3.dir/cmake_hdf5_test.c.o] Error 1
+        gmake[1]: Leaving directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-yZRCXR'
+        gmake: *** [Makefile:127: cmTC_0b9b3/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:238 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:608 (_HDF5_test_regular_compiler_C)"
+      - "tools/brmixed_export/CMakeLists.txt:2 (find_package)"
+    directories:
+      source: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-BeMdlt"
+      binary: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-BeMdlt"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "HDF5_C_COMPILER_NO_INTERROGATE"
+      cached: true
+      stdout: |
+        Change Dir: '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-BeMdlt'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8381d/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8381d.dir/build.make CMakeFiles/cmTC_8381d.dir/build
+        gmake[1]: Entering directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-BeMdlt'
+        Building C object CMakeFiles/cmTC_8381d.dir/cmake_hdf5_test.c.o
+        /home/renpo/system/mpich-install/bin/mpicc    -o CMakeFiles/cmTC_8381d.dir/cmake_hdf5_test.c.o -c /home/renpo/Research/MantlePar/build/tools/brmixed_export/CMakeFiles/hdf5/cmake_hdf5_test.c
+        /home/renpo/Research/MantlePar/build/tools/brmixed_export/CMakeFiles/hdf5/cmake_hdf5_test.c:1:10: fatal error: hdf5.h: No such file or directory
+            1 | #include <hdf5.h>
+              |          ^~~~~~~~
+        compilation terminated.
+        gmake[1]: *** [CMakeFiles/cmTC_8381d.dir/build.make:78: CMakeFiles/cmTC_8381d.dir/cmake_hdf5_test.c.o] Error 1
+        gmake[1]: Leaving directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-BeMdlt'
+        gmake: *** [Makefile:127: cmTC_8381d/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:238 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:608 (_HDF5_test_regular_compiler_C)"
+      - "tools/hdivmixed_export/CMakeLists.txt:2 (find_package)"
+    directories:
+      source: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-PG3fqc"
+      binary: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-PG3fqc"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "HDF5_C_COMPILER_NO_INTERROGATE"
+      cached: true
+      stdout: |
+        Change Dir: '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-PG3fqc'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_c0270/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_c0270.dir/build.make CMakeFiles/cmTC_c0270.dir/build
+        gmake[1]: Entering directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-PG3fqc'
+        Building C object CMakeFiles/cmTC_c0270.dir/cmake_hdf5_test.c.o
+        /home/renpo/system/mpich-install/bin/mpicc    -o CMakeFiles/cmTC_c0270.dir/cmake_hdf5_test.c.o -c /home/renpo/Research/MantlePar/build/tools/hdivmixed_export/CMakeFiles/hdf5/cmake_hdf5_test.c
+        /home/renpo/Research/MantlePar/build/tools/hdivmixed_export/CMakeFiles/hdf5/cmake_hdf5_test.c:1:10: fatal error: hdf5.h: No such file or directory
+            1 | #include <hdf5.h>
+              |          ^~~~~~~~
+        compilation terminated.
+        gmake[1]: *** [CMakeFiles/cmTC_c0270.dir/build.make:78: CMakeFiles/cmTC_c0270.dir/cmake_hdf5_test.c.o] Error 1
+        gmake[1]: Leaving directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-PG3fqc'
+        gmake: *** [Makefile:127: cmTC_c0270/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:238 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/FindHDF5.cmake:608 (_HDF5_test_regular_compiler_C)"
+      - "CMakeLists.txt:78 (find_package)"
+    directories:
+      source: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-DI2QG0"
+      binary: "/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-DI2QG0"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "HDF5_C_COMPILER_NO_INTERROGATE"
+      cached: true
+      stdout: |
+        Change Dir: '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-DI2QG0'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8ab96/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8ab96.dir/build.make CMakeFiles/cmTC_8ab96.dir/build
+        gmake[1]: Entering directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-DI2QG0'
+        Building C object CMakeFiles/cmTC_8ab96.dir/cmake_hdf5_test.c.o
+        /home/renpo/system/mpich-install/bin/mpicc    -o CMakeFiles/cmTC_8ab96.dir/cmake_hdf5_test.c.o -c /home/renpo/Research/MantlePar/build/CMakeFiles/hdf5/cmake_hdf5_test.c
+        /home/renpo/Research/MantlePar/build/CMakeFiles/hdf5/cmake_hdf5_test.c:1:10: fatal error: hdf5.h: No such file or directory
+            1 | #include <hdf5.h>
+              |          ^~~~~~~~
+        compilation terminated.
+        gmake[1]: *** [CMakeFiles/cmTC_8ab96.dir/build.make:78: CMakeFiles/cmTC_8ab96.dir/cmake_hdf5_test.c.o] Error 1
+        gmake[1]: Leaving directory '/home/renpo/Research/MantlePar/build/CMakeFiles/CMakeScratch/TryCompile-DI2QG0'
+        gmake: *** [Makefile:127: cmTC_8ab96/fast] Error 2
+        
+      exitCode: 2
+...

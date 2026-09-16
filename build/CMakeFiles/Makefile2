@@ -211,8 +211,8 @@ tools/phase_export/clean: tools/phase_export/CMakeFiles/export_phase.dir/clean
 # Target rules for target CMakeFiles/mantle_driver.dir
 
 # All Build rule for target.
-CMakeFiles/mantle_driver.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 CMakeFiles/mantle_driver.dir/all: src/core/CMakeFiles/mantle_core.dir/all
+CMakeFiles/mantle_driver.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mantle_driver.dir/build.make CMakeFiles/mantle_driver.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mantle_driver.dir/build.make CMakeFiles/mantle_driver.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/renpo/Research/MantlePar/build/CMakeFiles --progress-num=18,19 "Built target mantle_driver"
@@ -422,8 +422,8 @@ src/mfem/CMakeFiles/mantle_mfem.dir/clean:
 # Target rules for target tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir
 
 # All Build rule for target.
-tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/all: src/core/CMakeFiles/mantle_core.dir/all
+tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 	$(MAKE) $(MAKESILENT) -f tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/build.make tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/depend
 	$(MAKE) $(MAKESILENT) -f tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/build.make tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/renpo/Research/MantlePar/build/CMakeFiles --progress-num=9,10 "Built target mantle_brmixed_output"
@@ -449,9 +449,9 @@ tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/clean:
 # Target rules for target tools/brmixed_export/CMakeFiles/export_brmixed.dir
 
 # All Build rule for target.
-tools/brmixed_export/CMakeFiles/export_brmixed.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 tools/brmixed_export/CMakeFiles/export_brmixed.dir/all: tools/brmixed_export/CMakeFiles/mantle_brmixed_output.dir/all
 tools/brmixed_export/CMakeFiles/export_brmixed.dir/all: src/core/CMakeFiles/mantle_core.dir/all
+tools/brmixed_export/CMakeFiles/export_brmixed.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 	$(MAKE) $(MAKESILENT) -f tools/brmixed_export/CMakeFiles/export_brmixed.dir/build.make tools/brmixed_export/CMakeFiles/export_brmixed.dir/depend
 	$(MAKE) $(MAKESILENT) -f tools/brmixed_export/CMakeFiles/export_brmixed.dir/build.make tools/brmixed_export/CMakeFiles/export_brmixed.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/renpo/Research/MantlePar/build/CMakeFiles --progress-num=1,2 "Built target export_brmixed"
@@ -477,8 +477,8 @@ tools/brmixed_export/CMakeFiles/export_brmixed.dir/clean:
 # Target rules for target tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir
 
 # All Build rule for target.
-tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/all: src/core/CMakeFiles/mantle_core.dir/all
+tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 	$(MAKE) $(MAKESILENT) -f tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/build.make tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/depend
 	$(MAKE) $(MAKESILENT) -f tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/build.make tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/renpo/Research/MantlePar/build/CMakeFiles --progress-num=20,21 "Built target mantle_hdivmixed_output"
@@ -504,9 +504,9 @@ tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/clean:
 # Target rules for target tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir
 
 # All Build rule for target.
+tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/all: src/core/CMakeFiles/mantle_core.dir/all
 tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/all: src/mfem/CMakeFiles/mantle_mfem.dir/all
 tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/all: tools/hdivmixed_export/CMakeFiles/mantle_hdivmixed_output.dir/all
-tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/all: src/core/CMakeFiles/mantle_core.dir/all
 	$(MAKE) $(MAKESILENT) -f tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/build.make tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/depend
 	$(MAKE) $(MAKESILENT) -f tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/build.make tools/hdivmixed_export/CMakeFiles/export_hdivmixed.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/renpo/Research/MantlePar/build/CMakeFiles --progress-num=3,4 "Built target export_hdivmixed"

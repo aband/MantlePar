@@ -1,0 +1,205 @@
+# Active half-corner flow from MantleSolver_cpp/src/corner/half.
+# The 20x20 grid matches the legacy fast.sh smoke test; it does NOT resolve
+# the 20 m porosity apex. See README.md for the boundary-DOF differences.
+schema_version: 2
+simulation:
+  name: half_corner
+  mode: steady
+parallel:
+  launcher: /home/renpo/system/mpich-install/bin/mpiexec
+  ranks: 1
+  process_grid: [1, 1]
+mesh:
+  family: perturbed_quadrilateral
+  domain:
+    x: [0.0, 0.5]
+    y: [-0.5, 0.0]
+  cells: [20, 20]
+  perturbation:
+    amplitude: 0.15
+    seed: 20260916
+    boundary_vertices: fixed
+quadrature:
+  cell_points_per_axis: 8
+  edge_points: 8
+porosity:
+  source: prescribed_function
+  prescribed_function:
+    name: half_corner_porosity
+    parameters:
+      maximum_porosity: 0.05
+      length_scale: 316228.0 # rounded value actually used in legacy porosity.cpp, m
+      melting_depth: 120000.0 # m
+      apex_width: 20.0 # m
+  cell_average: physical_quadrature
+boundary_regions:
+  physical_endpoint_policy: require_boundary_vertex
+  coordinate_tolerance: 1.0e-12
+  definitions:
+    left_lower:
+      side: left
+      selector:
+        mode: physical_interval
+        coordinate: y
+        interval: [-0.5, -0.125]
+    right_wall:
+      side: right
+      selector:
+        mode: whole_side
+flow:
+  enabled: true
+  system: coupled_stokes_darcy
+  porosity: porosity
+  parameters:
+    formulation: legacy_rescaled
+    theta: 0.0
+    darcy_compaction_average_cutoff: 1.0e-15
+    coupling_average_cutoff: 1.0e-16
+  forcing:
+    stokes:
+      name: constant
+      parameters:
+        value: [0.0, -1.0]
+    darcy:
+      name: constant
+      parameters:
+        value: [0.0, 0.0]
+    stokes_pressure_source:
+      name: constant
+      parameters:
+        value: 0.0
+    darcy_pressure_source:
+      name: constant
+      parameters:
+        value: 0.0
+  boundary_conditions:
+    value_absolute_tolerance: 1.0e-12
+    value_relative_tolerance: 1.0e-10
+    stokes:
+      components: cartesian
+      default:
+        x:
+          type: dirichlet
+          value:
+            name: half_corner_velocity_x
+            parameters: &boundary_velocity
+              # (3.2 cm/year)/(5e-5 m/s), using a 365-day year.
+              speed: 2.0294266869609333e-5
+              surface_cutoff: 0.04
+              surface_y_tolerance: 0.00005
+              right_x_cutoff: 0.45
+              right_y_cutoff: -0.3
+        y:
+          type: dirichlet
+          value:
+            name: half_corner_velocity_y
+            parameters: *boundary_velocity
+      segments:
+      - region: left_lower
+        priority: 10
+        y:
+          type: neumann
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+      - region: right_wall
+        priority: 10
+        x:
+          type: neumann
+          value:
+            name: half_corner_traction_x
+        y:
+          type: neumann
+          value:
+            name: half_corner_traction_y
+    darcy:
+      dirichlet_variable: assembled_normal_velocity
+      neumann_variable: pressure_potential
+      default:
+        type: dirichlet
+        value:
+          name: constant
+          parameters:
+            value: 0.0
+      segments:
+      - region: right_wall
+        priority: 10
+        type: neumann
+        value:
+          name: constant
+          parameters:
+            value: 0.0
+  linear_system:
+    sign_convention: legacy
+    # Right-wall traction fixes the common pressure level.
+    pressure_nullspace: none
+    project_rhs: false
+  solver:
+    options_prefix: corner_
+    ksp: fgmres
+    preconditioner: schur
+    relative_tolerance: 1.0e-10
+    absolute_tolerance: 1.0e-12
+    divergence_tolerance: 100000000.0
+    maximum_iterations: 2000
+    initial_guess_nonzero: false
+    velocity:
+      ksp: cg
+      pc: jacobi
+      relative_tolerance: 1.0e-12
+      absolute_tolerance: 1.0e-14
+      divergence_tolerance: 100000000.0
+      maximum_iterations: 2000
+    pressure:
+      ksp: cg
+      pc: none
+      relative_tolerance: 1.0e-12
+      absolute_tolerance: 1.0e-14
+      divergence_tolerance: 100000000.0
+      maximum_iterations: 2000
+    error_if_not_converged: true
+    require_subsolver_convergence: true
+    require_true_residual: true
+    remove_pressure_nullspace: false
+transport:
+  enabled: false
+phase:
+  enabled: false
+coupling:
+  backend: internal
+  internal:
+    scheme: single_pass
+    update_order: [flow]
+restart:
+  enabled: false
+studies:
+  convergence:
+    enabled: false
+output:
+  directory: output/{mesh_family}/level_{level}
+  fields:
+    format: hdf5_xdmf
+    file: fields_{step}.h5
+    xdmf_series: fields.xdmf
+    parallel_hdf5: true
+    quantities:
+    - porosity
+    - stokes_velocity
+    - darcy_velocity
+    - darcy_segregation_flux
+    - stokes_pressure_assembled
+    - darcy_pressure_assembled
+    - darcy_pressure_potential
+  profiles:
+    enabled: false
+  convergence_table: none
+  solver_report: csv
+  diagnostics: [true_residual, subsolver_convergence, discrete_mass_balance]
+  plots:
+    convergence: false
+    profiles: false
+    formats: [png, pdf]
+  schedule:
+    steady: after_solve
+  save_resolved_input: true

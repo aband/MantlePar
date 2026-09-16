@@ -79,3 +79,4 @@ if __name__ == "__main__":
     except (OSError, ValueError, KeyError, yaml.YAMLError) as error:
         print(f"Example runner: {error}", file=sys.stderr)
         raise SystemExit(2)
+

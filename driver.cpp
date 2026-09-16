@@ -155,11 +155,42 @@ const std::set<std::string> vectorNames{"mms_stokes_force", "mms_darcy_force"};
 const std::set<std::string> scalarNames{
     "mms_stokes_source", "mms_darcy_source", "mms_stokes_velocity_x",
     "mms_stokes_velocity_y", "mms_stokes_traction_x", "mms_stokes_traction_y",
-    "mms_darcy_normal_velocity", "mms_darcy_pressure"};
+    "mms_darcy_normal_velocity", "mms_darcy_pressure",
+    "half_corner_traction_x", "half_corner_traction_y"};
 const std::set<std::string> fields{"porosity", "stokes_velocity", "darcy_velocity",
     "stokes_pressure_assembled", "darcy_pressure_assembled", "darcy_pressure_potential", "darcy_segregation_flux"};
 void Require(bool ok, const std::string& message)
 { if (!ok) throw in::InputError(message); }
+void ScalarParameters(const in::FunctionInput& f,int components,
+                      const std::set<std::string>& names)
+{
+    Require(components==1,f.name+" returns a scalar.");
+    Require(f.parameters.mapping.size()==names.size(),f.name+" has missing or extra parameters.");
+    for(const auto& kv:f.parameters.mapping) {
+        Require(names.count(kv.first)!=0,"Unknown "+f.name+" parameter: "+kv.first);
+        (void)kv.second.AsReal(); // Also rejects nonfinite values.
+    }
+}
+// Active functions in MantleSolver_cpp/parallel_debug/src/corner/half.
+// Keep these pointwise kernels independent of the input reader and assembly.
+double HalfCornerPorosity(const Point& p,double maximum,double depth,double width)
+{
+    const double z=std::abs(p.p[1]),x=std::abs(p.p[0]);
+    if(z>=depth || x>=z+width)return 0;
+    const double taper=(depth-z)/depth;
+    return maximum*taper*taper*(1-x/(z+width));
+}
+Point HalfCornerVelocity(const Point& p,double speed,double cutoff,double surfaceTolerance,
+                         double rightX,double rightY)
+{
+    Point result{};
+    if(p.p[1]>-surfaceTolerance)
+        result.p[0]=p.p[0]<cutoff?speed*std::erf(p.p[0])/std::erf(cutoff):speed;
+    else if(p.p[1]<-surfaceTolerance)
+        result.p[1]=speed;
+    if(p.p[0]>rightX && p.p[1]>rightY)result=Point{{speed,0}};
+    return result;
+}
 bool Stokes(const in::InputConfig& c) { return c.flow.system != "darcy"; }
 bool Darcy(const in::InputConfig& c) { return c.flow.system != "stokes"; }
 double Phi(const in::InputConfig& c)
@@ -245,6 +276,26 @@ in::ReadInputOptions ReaderOptions()
         out.extensions.functions[name]=[](const in::FunctionInput& f,int components){
             Require(components==1 && f.parameters.mapping.empty(),
                     f.name+" takes no parameters and returns a scalar.");
+        };
+    out.extensions.functions["half_corner_porosity"]=[](const in::FunctionInput& f,int components){
+        ScalarParameters(f,components,{"maximum_porosity","length_scale","melting_depth","apex_width"});
+        const auto& p=f.parameters;
+        const double maximum=p.At("maximum_porosity").AsReal();
+        const double scale=p.At("length_scale").AsReal();
+        Require(maximum>=0 && maximum<1,"half_corner_porosity requires 0 <= maximum_porosity < 1.");
+        Require(scale>0,"half_corner_porosity requires a positive length_scale.");
+        const double depth=p.At("melting_depth").AsReal()/scale;
+        const double width=p.At("apex_width").AsReal()/scale;
+        Require(depth>0 && width>0 && std::isfinite(depth+width),
+                "half_corner_porosity requires positive, finite scaled melting_depth and apex_width.");
+    };
+    for(const auto* name:{"half_corner_velocity_x","half_corner_velocity_y"})
+        out.extensions.functions[name]=[](const in::FunctionInput& f,int components){
+            ScalarParameters(f,components,{"speed","surface_cutoff","surface_y_tolerance","right_x_cutoff","right_y_cutoff"});
+            const auto& p=f.parameters;
+            Require(p.At("speed").AsReal()>0 && p.At("surface_cutoff").AsReal()>0 &&
+                    p.At("surface_y_tolerance").AsReal()>0,
+                    f.name+" requires positive speed, surface_cutoff and surface_y_tolerance.");
         };
     out.extensions.references["manufactured"] = [](const in::Value& value,
                                                    const in::InputConfig& c) {
@@ -399,6 +450,11 @@ PetscReal Porosity(const in::InputConfig& c, const Point& point)
     const auto& f=c.porosity.prescribedFunction;
     const auto& p=f.parameters;
     if(f.name=="constant") return p.At("value").AsReal();
+    if(f.name=="half_corner_porosity") {
+        const double scale=p.At("length_scale").AsReal();
+        return HalfCornerPorosity(point,p.At("maximum_porosity").AsReal(),
+            p.At("melting_depth").AsReal()/scale,p.At("apex_width").AsReal()/scale);
+    }
     const auto y=point.p[1], y0=p.At("interface_y").AsReal();
     if(f.name=="piecewise_constant")
         return p.At(y<y0?"value_below":"value_above").AsReal();
@@ -489,6 +545,16 @@ PetscReal ScalarFunction(const in::FunctionInput& f,const in::InputConfig& c,
                          const Point& p,const Point& n)
 {
     if(f.name=="constant") return f.parameters.At("value").AsReal();
+    if(f.name=="half_corner_velocity_x" || f.name=="half_corner_velocity_y") {
+        const auto& a=f.parameters;
+        const auto u=HalfCornerVelocity(p,a.At("speed").AsReal(),a.At("surface_cutoff").AsReal(),
+            a.At("surface_y_tolerance").AsReal(),a.At("right_x_cutoff").AsReal(),a.At("right_y_cutoff").AsReal());
+        return u.p[f.name=="half_corner_velocity_x"?0:1];
+    }
+    // Legacy naturvalStokes=|y| is SUBTRACTED from the momentum RHS.
+    // MantlePar adds a full traction vector, so t=-|y|*n_out.
+    if(f.name=="half_corner_traction_x")return -std::abs(p.p[1])*n.p[0];
+    if(f.name=="half_corner_traction_y")return -std::abs(p.p[1])*n.p[1];
     const Trig t(p); const double phi=Phi(c), solid=1-phi;
     const double coupling=c.flow.system=="coupled_stokes_darcy"?std::sqrt(phi)/solid:0;
     if(f.name=="mms_stokes_source") return -t.divs()-phi/solid*t.ps()+coupling*t.pd();
