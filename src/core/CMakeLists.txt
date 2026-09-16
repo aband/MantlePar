@@ -16,6 +16,8 @@ target_link_libraries(mantle_core
         PkgConfig::LAPACKE
 )
 
+include("${CMAKE_CURRENT_LIST_DIR}/input.cmake")
+
 if(BUILD_TESTING)
     add_subdirectory(test)
 endif()
