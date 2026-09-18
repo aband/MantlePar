@@ -1,0 +1,78 @@
+include_guard(GLOBAL)
+if(NOT BUILD_TESTING)
+    return()
+endif()
+if(NOT TARGET mantle_mlweno)
+    message(FATAL_ERROR "Define mantle_mlweno before including advection_diffusion_tests.cmake")
+endif()
+foreach(_ad_file IN ITEMS advectiveflux.h advectiveflux.cpp diffusiveflux.h diffusiveflux.cpp)
+    if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/../${_ad_file}")
+        message(FATAL_ERROR "Place ${_ad_file} in src/mlweno before enabling the transport tests")
+    endif()
+endforeach()
+add_executable(test_advection_diffusion "${CMAKE_CURRENT_LIST_DIR}/test_advection_diffusion.cpp")
+target_compile_features(test_advection_diffusion PRIVATE cxx_std_17)
+target_link_libraries(test_advection_diffusion PRIVATE mantle_mlweno)
+set(_ad_results "${CMAKE_CURRENT_BINARY_DIR}/advection_diffusion_results")
+file(MAKE_DIRECTORY "${_ad_results}")
+set(_ad_fixtures)
+function(_mantle_advection_diffusion_case name category)
+    add_test(NAME mlweno_advection_diffusion_${name} COMMAND test_advection_diffusion
+        ${ARGN} -flux_output "${_ad_results}/${name}.csv")
+    set_tests_properties(mlweno_advection_diffusion_${name} PROPERTIES
+        LABELS "mlweno;transport;advection_diffusion;${category};serial" PROCESSORS 1 TIMEOUT 900
+        FIXTURES_SETUP advection_diffusion_${name})
+    set(_ad_fixtures ${_ad_fixtures} advection_diffusion_${name} PARENT_SCOPE)
+endfunction()
+foreach(_ad_mesh RANGE 0 1)
+    foreach(_ad_lf RANGE 0 1)
+        foreach(_ad_regime IN ITEMS advective balanced diffusive)
+            if(_ad_regime STREQUAL "advective")
+                set(_ad_kappa 0.0001)
+            elseif(_ad_regime STREQUAL "balanced")
+                set(_ad_kappa 0.02)
+            else()
+                set(_ad_kappa 1.0)
+            endif()
+            _mantle_advection_diffusion_case(smooth_m${_ad_mesh}_lf${_ad_lf}_${_ad_regime} convergence
+                -flux_mesh ${_ad_mesh} -flux_lf ${_ad_lf} -flux_kappa ${_ad_kappa})
+        endforeach()
+        if(_ad_lf EQUAL 0)
+            set(_ad_order 3)
+        else()
+            set(_ad_order 5)
+        endif()
+        _mantle_advection_diffusion_case(jacobian_m${_ad_mesh}_lf${_ad_lf} jacobian
+            -flux_mode 1 -flux_mesh ${_ad_mesh} -flux_lf ${_ad_lf} -flux_order ${_ad_order} -flux_constant 1)
+    endforeach()
+    _mantle_advection_diffusion_case(smooth_p5_m${_ad_mesh} convergence
+        -flux_mesh ${_ad_mesh} -flux_order 5 -flux_constant 1)
+    _mantle_advection_diffusion_case(properties_m${_ad_mesh} properties -flux_mode 2 -flux_mesh ${_ad_mesh})
+endforeach()
+foreach(_ad_axis RANGE 1 2)
+    math(EXPR _ad_lf "${_ad_axis}-1")
+    _mantle_advection_diffusion_case(smooth_axis${_ad_axis} "convergence;pseudo1d"
+        -flux_axis ${_ad_axis} -flux_lf ${_ad_lf} -flux_order 5 -flux_constant 1 -flux_n0 16 -flux_levels 5)
+    _mantle_advection_diffusion_case(jacobian_axis${_ad_axis} "jacobian;pseudo1d"
+        -flux_mode 1 -flux_axis ${_ad_axis} -flux_lf ${_ad_lf} -flux_order 5 -flux_constant 1)
+endforeach()
+_mantle_advection_diffusion_case(front_rectangle "accuracy;front"
+    -flux_field 1 -flux_kappa 0.005 -flux_mesh 0 -flux_order 3 -flux_constant 1)
+_mantle_advection_diffusion_case(front_oblique_quad "accuracy;front"
+    -flux_field 1 -flux_kappa 0.005 -flux_mesh 1 -flux_orientation 2 -flux_lf 1 -flux_order 3 -flux_constant 1)
+
+option(MANTLE_TRANSPORT_TEST_PLOTS "Plot transport accuracy and discontinuity CSV files" ON)
+if(MANTLE_TRANSPORT_TEST_PLOTS)
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    set(_ad_python_status 1)
+    if(Python3_Interpreter_FOUND)
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import matplotlib"
+            RESULT_VARIABLE _ad_python_status OUTPUT_QUIET ERROR_QUIET)
+    endif()
+    if(_ad_python_status EQUAL 0)
+        add_test(NAME mlweno_advection_diffusion_plots COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_LIST_DIR}/plot_transport_tests.py" --input-dir "${_ad_results}")
+        set_tests_properties(mlweno_advection_diffusion_plots PROPERTIES LABELS "mlweno;transport;plot"
+            TIMEOUT 180 FIXTURES_REQUIRED "${_ad_fixtures}")
+    endif()
+endif()

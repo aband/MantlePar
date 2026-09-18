@@ -5,4 +5,4 @@ cmake -S . -B build \
   -DMANTLE_BUILD_DRIVER=ON \
   -DHDF5_ROOT=/home/renpo/system/hdf5-install
 
-cmake --build build --target mantle_driver -j
+cmake --build build --parallel

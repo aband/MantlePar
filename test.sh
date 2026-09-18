@@ -10,7 +10,8 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 cmake --fresh -S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTING=ON \
-  -DHDF5_ROOT=/home/renpo/system/hdf5-install
+  -DHDF5_ROOT=/home/renpo/system/hdf5-install\
+  -DMANTLE_RECONSTRUCTION_CRITICAL_POINT_TESTS=ON
 
 # Build all default targets, including every registered test executable.
 cmake --build build --parallel

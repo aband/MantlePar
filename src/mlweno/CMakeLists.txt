@@ -2,6 +2,8 @@
 add_library(mantle_mlweno
 	reconstruction.cpp
 	tensorstencilpoly.cpp
+	advectiveflux.cpp
+	diffusiveflux.cpp
 )
 
 target_include_directories(mantle_mlweno
