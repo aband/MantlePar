@@ -1,0 +1,179 @@
+# Dry 2D corner preheat, adapted from MantleSolver_cpp/src/corner/formalpreheat. All coordinates/time/transport fields
+# are nondimensional; material inputs are SI and phase pressure is in Pa.
+# Run mantle_couple_init, not the steady-flow mantle_driver executable.
+schema_version: 2
+simulation:
+  name: couple_formalpreheat_initialization
+  mode: transient
+parallel:
+  launcher: mpiexec
+  ranks: 1
+  process_grid: [1, 1]
+mesh:
+  family: rectangular
+  domain:
+    x: [0.0, 0.5]
+    y: [-0.5, 0.0]
+  cells: [20, 20]
+  perturbation: {amplitude: 0.15, seed: 20260918, boundary_vertices: fixed}
+quadrature:
+  cell_points_per_axis: 5
+  edge_points: 5
+
+# Match formalpreheat/porosity.cpp: dry flow coefficients are prescribed zero.
+# Equilibrium phase fractions are still evaluated and displayed as diagnostics.
+porosity:
+  source: prescribed_function
+  prescribed_function: {name: constant, parameters: {value: 0.0}}
+  cell_average: physical_quadrature
+
+boundary_regions:
+  physical_endpoint_policy: require_boundary_vertex
+  coordinate_tolerance: 1.0e-12
+  definitions:
+    left:   {side: left,   selector: {mode: whole_side}}
+    right:  {side: right,  selector: {mode: whole_side}}
+    bottom: {side: bottom, selector: {mode: whole_side}}
+    top:    {side: top,    selector: {mode: whole_side}}
+    # Legacy marker: the upper five left-side cells prescribe tangential speed.
+    left_upper: {side: left, selector: {mode: boundary_cells, start: 15, count: 5}}
+    warm_top: {side: top, selector: {mode: physical_interval, coordinate: x, interval: [0.0, 0.025]}}
+
+phase:
+  enabled: true
+  model: eutectic_rescaled
+  parameters:
+    Tm0: 2000.0
+    Te0: 1480.0
+    nu: 6.5e6
+    L: 5.0e5
+    cp: 1200.0
+    Xe: 0.25
+    rho: 3000.0
+    rhor: 500.0
+    mus: 1.0e19
+    mul: 1.0
+    k0: 1.0e-8
+    g: 10.0
+    alpha0: 3.0e-5
+  pressure:
+    model: lithostatic
+    surface_y: 0.0
+
+transport:
+  enabled: true
+  initial_conditions:
+    enthalpy:
+      name: constant
+      parameters: {value: 3.35}
+    composition:
+      name: affine
+      parameters: {value: 0.01, origin: [0.0, 0.0], gradient: [0.0, -0.12]}
+  boundary_conditions:
+    enthalpy:
+      default: {type: zero_flux}
+      segments:
+        - {region: bottom, type: inflow_outflow, value: {name: constant, parameters: {value: 3.35}}}
+        - {region: right, type: inflow_outflow, value: {name: constant, parameters: {value: 0.0}}}
+    composition:
+      # Legacy preheating leaves the composition profile stationary.
+      default: {type: zero_flux}
+    temperature:
+      default: {type: zero_flux}
+      segments:
+        - {region: top, type: prescribed_temperature, value: {name: constant, parameters: {value: 0.0}}}
+        - {region: warm_top, priority: 2, type: prescribed_temperature, value: {name: constant, parameters: {value: 3.35}}}
+  stabilizer:
+    type: local_lax_friedrichs
+    linearization: full
+    # For global_lax_friedrichs, supply global_speed: <nonnegative bound>.
+    # No velocity/speed is inferred before the flow solve.
+  thermal_diffusion:
+    diffusivity: 8.0e-8
+    number_of_samples: 4
+    extent_fraction: 0.9
+
+flow:
+  enabled: true
+  system: coupled_stokes_darcy
+  porosity: porosity
+  parameters:
+    formulation: legacy_rescaled
+    theta: 0.0
+    darcy_compaction_average_cutoff: 1.0e-15
+    coupling_average_cutoff: 1.0e-16
+  forcing:
+    stokes: {name: constant, parameters: {value: [0.0, -1.0]}}
+    darcy: {name: constant, parameters: {value: [0.0, 0.0]}}
+    stokes_pressure_source: {name: constant, parameters: {value: 0.0}}
+    darcy_pressure_source: {name: constant, parameters: {value: 0.0}}
+  boundary_conditions:
+    value_absolute_tolerance: 1.0e-12
+    value_relative_tolerance: 1.0e-10
+    stokes:
+      components: cartesian
+      default:
+        x: {type: dirichlet, value: {name: constant, parameters: {value: 0.0}}}
+        y: {type: neumann, value: {name: constant, parameters: {value: 0.0}}}
+      segments:
+        # V0 = 3.2 cm/year; u0 = 5e-5 m/s; V0/u0 = 2.029426686961948e-5.
+        - region: bottom
+          y: {type: dirichlet, value: {name: constant, parameters: {value: 2.029426686961948e-5}}}
+        - region: top
+          x: {type: dirichlet, value: {name: erf_ramp, parameters: {amplitude: 2.029426686961948e-5, origin_x: 0.0, cutoff_x: 0.1, width: 1.0}}}
+          y: {type: dirichlet, value: {name: constant, parameters: {value: 0.0}}}
+        - region: left_upper
+          y: {type: dirichlet, value: {name: piecewise_constant, parameters: {interface_y: -0.00005, value_below: 2.029426686961948e-5, value_above: 0.0}}}
+        - region: right
+          # Legacy natural load is subtracted: traction = -abs(y)*n.
+          x: {type: neumann, value: {name: affine, parameters: {value: 0.0, gradient: [0.0, 1.0]}}}
+          y: {type: neumann, value: {name: constant, parameters: {value: 0.0}}}
+    darcy:
+      dirichlet_variable: assembled_normal_velocity
+      neumann_variable: pressure_potential
+      default: {type: dirichlet, value: {name: constant, parameters: {value: 0.0}}}
+  linear_system:
+    sign_convention: legacy
+    pressure_nullspace: none
+    project_rhs: false
+  solver:
+    options_prefix: couple_flow_
+    ksp: fgmres
+    preconditioner: schur
+    relative_tolerance: 1.0e-10
+    absolute_tolerance: 1.0e-12
+    divergence_tolerance: 1.0e8
+    maximum_iterations: 2000
+    initial_guess_nonzero: false
+    # GMRES pressure solve handles the exactly dry Stokes limit.
+    velocity:
+      ksp: cg
+      pc: jacobi
+      relative_tolerance: 1.0e-12
+      absolute_tolerance: 1.0e-14
+      maximum_iterations: 2000
+    pressure:
+      ksp: gmres
+      pc: none
+      relative_tolerance: 1.0e-12
+      absolute_tolerance: 1.0e-14
+      maximum_iterations: 2000
+    error_if_not_converged: true
+    require_subsolver_convergence: true
+    require_true_residual: true
+    remove_pressure_nullspace: false
+
+time:
+  start: 0.0
+  end: 15000.0
+  maximum_steps: 1500
+  step: {control: fixed, initial: 10.0, minimum: 10.0, maximum: 10.0, cfl: 0.5}
+coupling:
+  backend: internal
+  internal:
+    scheme: single_pass
+    update_order: [phase, flow, transport]
+restart: {enabled: false}
+output:
+  directory: output/{mesh_family}
+  save_resolved_input: true
