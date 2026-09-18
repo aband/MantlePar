@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmantle_mesh_output.a CMakeFiles/mantle_mesh_output.dir/mesh_output.cpp.o
-/usr/bin/ranlib libmantle_mesh_output.a

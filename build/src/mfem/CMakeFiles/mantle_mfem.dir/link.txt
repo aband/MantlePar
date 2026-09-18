@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmantle_mfem.a CMakeFiles/mantle_mfem.dir/basis.cpp.o CMakeFiles/mantle_mfem.dir/brmixed.cpp.o CMakeFiles/mantle_mfem.dir/hdivmixed.cpp.o CMakeFiles/mantle_mfem.dir/dof_map.cpp.o CMakeFiles/mantle_mfem.dir/local_matrix.cpp.o CMakeFiles/mantle_mfem.dir/assembly.cpp.o CMakeFiles/mantle_mfem.dir/boundary_conditions.cpp.o CMakeFiles/mantle_mfem.dir/linear_system.cpp.o CMakeFiles/mantle_mfem.dir/linear_solver.cpp.o
-/usr/bin/ranlib libmantle_mfem.a

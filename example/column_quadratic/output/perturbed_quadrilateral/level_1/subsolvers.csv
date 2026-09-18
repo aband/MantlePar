@@ -1,3 +1,0 @@
-prefix,solves,total_iterations,failures,first_failure,last_reason,last_iterations,last_residual
-column_fieldsplit_velocity_,67,4768,0,0,2,87,5.0709401388871377e-13
-column_fieldsplit_pressure_,1,65,0,0,2,65,7.4294493263803722e-13

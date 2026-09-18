@@ -1,2 +1,0 @@
-family,level,converged,ksp,pc,reason,iterations,true_residual,relative_true_residual,true_residual_threshold,subsolvers_converged,seconds
-rectangular,0,1,fgmres,fieldsplit,3,1,1.089135329207008e-13,4.0658813818932193e-13,2.678718897352258e-11,1,0.064389160000000001

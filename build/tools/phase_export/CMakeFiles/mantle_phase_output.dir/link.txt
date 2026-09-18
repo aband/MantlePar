@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmantle_phase_output.a CMakeFiles/mantle_phase_output.dir/phase_output.cpp.o
-/usr/bin/ranlib libmantle_phase_output.a
