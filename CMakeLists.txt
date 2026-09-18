@@ -46,9 +46,7 @@ add_subdirectory(tools/phase_export)
 add_subdirectory(src/mfem)
 add_subdirectory(tools/brmixed_export)
 add_subdirectory(tools/hdivmixed_export)
-
-
-# add_subdirectory(src/mlweno_array)
+add_subdirectory(src/mlweno)
 # add_subdirectory(src/transport_array)
 
 # Shared YAML-driven Stokes/Darcy executable at the repository root.
