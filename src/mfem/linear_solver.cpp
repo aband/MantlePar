@@ -51,7 +51,7 @@ PetscErrorCode CheckInput(const LinearSystem& s, const LinearSolverOptions& o)
                Name(o.velocity.kspType,false) && Name(o.velocity.pcType,false) &&
                Name(o.pressure.kspType,false) && Name(o.pressure.pcType,false),
                PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Invalid or overlong solver prefix/type name");
-    PetscCheck(o.preconditioner==LinearPreconditioner::None || o.preconditioner==LinearPreconditioner::Schur,
+    PetscCheck(o.preconditioner==LinearPreconditioner::None || o.preconditioner==LinearPreconditioner::Schur || o.preconditioner==LinearPreconditioner::SparseLU,
                PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE, "Unknown linear preconditioner preset");
     PetscCall(CheckTolerances(o.relativeTolerance,o.absoluteTolerance,o.divergenceTolerance,o.maximumIterations));
     for (const auto* b : {&o.velocity,&o.pressure})
@@ -106,7 +106,9 @@ struct Tracked {
 
 struct Work {
     KSP ksp=nullptr;
-    Vec residual=nullptr;
+    Vec residual=nullptr,flatRhs=nullptr,flatSolution=nullptr;
+    Mat flatMatrix=nullptr;
+    VecScatter flatScatter[4]{};
     MatNullSpace schurNullspace=nullptr;
     KSP *sub=nullptr, *inner=nullptr; // PETSc-allocated arrays, not KSP ownership.
     std::deque<Tracked> tracked;     // Stable callback addresses until KSPDestroy.
@@ -118,6 +120,9 @@ PetscErrorCode DestroyWork(Work& w)
     PetscErrorCode error=PETSC_SUCCESS;
     KeepFirst(error,KSPDestroy(&w.ksp));
     KeepFirst(error,VecDestroy(&w.residual));
+    for (auto& scatter:w.flatScatter) KeepFirst(error,VecScatterDestroy(&scatter));
+    KeepFirst(error,VecDestroy(&w.flatRhs)); KeepFirst(error,VecDestroy(&w.flatSolution));
+    KeepFirst(error,MatDestroy(&w.flatMatrix));
     KeepFirst(error,MatNullSpaceDestroy(&w.schurNullspace));
     KeepFirst(error,PetscFree(w.sub));
     KeepFirst(error,PetscFree(w.inner));
@@ -281,20 +286,101 @@ PetscErrorCode Snapshot(Work& w,LinearSolveReport& report)
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 
+
+// PETSc converts one nest level at a time. Preserve each level's index sets
+// while replacing its children with AIJ copies; never change the source blocks.
+PetscErrorCode FlattenMatrix(Mat source,Mat& result)
+{
+    PetscFunctionBeginUser;
+    PetscBool nested; PetscCall(PetscObjectTypeCompare(reinterpret_cast<PetscObject>(source),MATNEST,&nested));
+    if (!nested) { PetscCall(MatConvert(source,MATAIJ,MAT_INITIAL_MATRIX,&result)); PetscFunctionReturn(PETSC_SUCCESS); }
+    PetscInt nr,nc; PetscCall(MatNestGetSize(source,&nr,&nc));
+    std::vector<IS> rows(nr),cols(nc); std::vector<Mat> blocks(nr*nc,nullptr);
+    Mat single=nullptr;
+    const auto build=[&]() -> PetscErrorCode {
+        PetscFunctionBeginUser;
+        PetscCall(MatNestGetISs(source,rows.data(),cols.data()));
+        for (PetscInt i=0;i<nr;++i) for (PetscInt j=0;j<nc;++j) {
+            Mat child; PetscCall(MatNestGetSubMat(source,i,j,&child));
+            if (child) PetscCall(FlattenMatrix(child,blocks[i*nc+j]));
+        }
+        PetscCall(MatCreateNest(PetscObjectComm(reinterpret_cast<PetscObject>(source)),nr,rows.data(),nc,cols.data(),blocks.data(),&single));
+        PetscCall(MatConvert(single,MATAIJ,MAT_INITIAL_MATRIX,&result));
+        PetscFunctionReturn(PETSC_SUCCESS);
+    };
+    auto error=build(); KeepFirst(error,MatDestroy(&single));
+    for (auto& block:blocks) KeepFirst(error,MatDestroy(&block));
+    PetscCall(error); PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+PetscErrorCode SparseSolve(LinearSystem& system,const LinearSolverOptions& o,Work& w)
+{
+    PetscFunctionBeginUser;
+    const auto comm=PetscObjectComm(reinterpret_cast<PetscObject>(system.matrix));
+    PetscMPIInt size; PetscCallMPI(MPI_Comm_size(comm,&size));
+    PetscCheck(size==1,comm,PETSC_ERR_SUP,"sparse_lu currently uses serial PETSc LU; choose schur for multiple ranks");
+    PetscCheck(!system.pressureNullspace,comm,PETSC_ERR_SUP,"sparse_lu requires a nonsingular pressure system; choose schur for a pressure nullspace");
+    PetscCall(FlattenMatrix(system.matrix,w.flatMatrix));
+    PetscCall(MatCreateVecs(w.flatMatrix,&w.flatSolution,&w.flatRhs));
+    PetscCall(VecSet(w.flatSolution,0)); PetscCall(VecSet(w.flatRhs,0));
+    Vec rhs[4]{},solution[4]{}; IS fields[4]{}; PetscInt count=2;
+    if (system.kind==LinearSystemKind::Coupled) {
+        count=4;
+        PetscCall(GetCoupledLinearSystemRhs(system,rhs[0],rhs[1],rhs[2],rhs[3]));
+        PetscCall(GetCoupledLinearSystemSolution(system,solution[0],solution[1],solution[2],solution[3]));
+        PetscCall(GetCoupledLinearSystemFieldIS(system,fields[0],fields[1],fields[2],fields[3]));
+    } else {
+        PetscCall(GetLinearSystemRhs(system,rhs[0],rhs[1]));
+        PetscCall(GetLinearSystemSolution(system,solution[0],solution[1]));
+        PetscCall(GetLinearSystemFieldIS(system,fields[0],fields[1]));
+    }
+    for (PetscInt k=0;k<count;++k) {
+        PetscCall(VecScatterCreate(w.flatRhs,fields[k],rhs[k],nullptr,&w.flatScatter[k]));
+        PetscCall(VecScatterBegin(w.flatScatter[k],rhs[k],w.flatRhs,INSERT_VALUES,SCATTER_REVERSE));
+        PetscCall(VecScatterEnd(w.flatScatter[k],rhs[k],w.flatRhs,INSERT_VALUES,SCATTER_REVERSE));
+    }
+    PetscCall(KSPCreate(comm,&w.ksp)); PetscCall(KSPSetOptionsPrefix(w.ksp,o.optionsPrefix.c_str()));
+    PetscCall(KSPSetOperators(w.ksp,w.flatMatrix,w.flatMatrix)); PetscCall(KSPSetType(w.ksp,o.kspType.c_str()));
+    PetscCall(KSPSetTolerances(w.ksp,o.relativeTolerance,o.absoluteTolerance,o.divergenceTolerance,o.maximumIterations));
+    PetscCall(KSPSetInitialGuessNonzero(w.ksp,o.initialGuessNonzero?PETSC_TRUE:PETSC_FALSE));
+    PC pc; PetscCall(KSPGetPC(w.ksp,&pc)); PetscCall(PCSetType(pc,PCLU));
+    // A tiny factor-only shift permits sparse ordering through zero dry-pressure
+    // pivots. The outer Krylov solve corrects it against the UNMODIFIED matrix;
+    // acceptance still checks the true residual in the original nested system.
+    PetscCall(PCFactorSetMatOrderingType(pc,MATORDERINGND));
+    PetscCall(PCFactorSetShiftType(pc,MAT_SHIFT_NONZERO));
+    PetscCall(PCFactorSetShiftAmount(pc,1e-12));
+    PetscCall(KSPSetFromOptions(w.ksp)); PetscCall(PreserveOperator(w.ksp));
+    PetscBool nonzero; PetscCall(KSPGetInitialGuessNonzero(w.ksp,&nonzero));
+    if (nonzero) for (PetscInt k=0;k<count;++k) {
+        PetscCall(VecScatterBegin(w.flatScatter[k],solution[k],w.flatSolution,INSERT_VALUES,SCATTER_REVERSE));
+        PetscCall(VecScatterEnd(w.flatScatter[k],solution[k],w.flatSolution,INSERT_VALUES,SCATTER_REVERSE));
+    }
+    PetscCall(KSPSolve(w.ksp,w.flatRhs,w.flatSolution));
+    for (PetscInt k=0;k<count;++k) {
+        PetscCall(VecScatterBegin(w.flatScatter[k],w.flatSolution,solution[k],INSERT_VALUES,SCATTER_FORWARD));
+        PetscCall(VecScatterEnd(w.flatScatter[k],w.flatSolution,solution[k],INSERT_VALUES,SCATTER_FORWARD));
+    }
+    PetscFunctionReturn(PETSC_SUCCESS);
+}
+
 PetscErrorCode Run(LinearSystem& system,const LinearSolverOptions& options,Work& w,LinearSolveReport& report)
 {
     PetscFunctionBeginUser;
     const MPI_Comm comm=PetscObjectComm(reinterpret_cast<PetscObject>(system.matrix));
     PetscCall(VecNorm(system.rhs,NORM_2,&report.rhsNorm));
     PetscCheck(Finite(report.rhsNorm),comm,PETSC_ERR_ARG_OUTOFRANGE,"The RHS must have a finite norm");
-    PetscCall(Configure(system,options,w));
-    PetscBool nonzero=PETSC_FALSE; PetscCall(KSPGetInitialGuessNonzero(w.ksp,&nonzero));
-    if (nonzero) {
-        PetscReal norm=0; PetscCall(VecNorm(system.solution,NORM_2,&norm));
-        PetscCheck(Finite(norm),comm,PETSC_ERR_ARG_OUTOFRANGE,"The initial guess must have a finite norm");
-    } else PetscCall(VecSet(system.solution,0));
+    if (options.preconditioner==LinearPreconditioner::SparseLU) PetscCall(SparseSolve(system,options,w));
+    else {
+        PetscCall(Configure(system,options,w));
+        PetscBool nonzero=PETSC_FALSE; PetscCall(KSPGetInitialGuessNonzero(w.ksp,&nonzero));
+        if (nonzero) {
+            PetscReal norm=0; PetscCall(VecNorm(system.solution,NORM_2,&norm));
+            PetscCheck(Finite(norm),comm,PETSC_ERR_ARG_OUTOFRANGE,"The initial guess must have a finite norm");
+        } else PetscCall(VecSet(system.solution,0));
+        PetscCall(KSPSolve(w.ksp,system.rhs,system.solution));
+    }
     PetscCall(VecDuplicate(system.rhs,&w.residual));
-    PetscCall(KSPSolve(w.ksp,system.rhs,system.solution));
     report.solveCompleted=true;
     PetscCall(Snapshot(w,report));
     if (options.removePressureNullspace && report.reason>0 &&

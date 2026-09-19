@@ -63,7 +63,7 @@ struct Configuration {
     PetscReal thermalDiffusivity = 0;
 };
 
-// Local parsers throw input::InputError. The core reader retains its strict
+// Local parsers throw input::InputError. The input reader retains its strict
 // schema_version=2 and owns YAML/MPI handling; no second YAML reader is added.
 input::ReadInputOptions InitializationReaderOptions();
 Configuration MakeInitializationConfiguration(const input::InputConfig& input);
@@ -74,7 +74,7 @@ PetscErrorCode ReadInitializationInput(
 // OUTWARD normal speed for the relevant advected variable at this point.
 // InflowOutflow uses prescribed data only when speed<0, extrapolates at speed>0,
 // and returns ZeroFlux at speed=0. Outflow rejects backflow. These policies are
-// for scalar characteristic transport; the future coupled law chooses speeds.
+// for scalar characteristic transport; the coupled law supplies mixture/effective speeds.
 PetscErrorCode EvaluateAdvectionBoundary(
     const std::vector<BoundaryRule<AdvectionCondition>>& rules,
     const BoundaryPoint& point, PetscReal normalSpeed, AdvectiveBoundaryValue& value);
@@ -94,6 +94,10 @@ struct InitialState {
     Vec temperature = nullptr, porosity = nullptr;
     MeshInfo mesh;
     PetscReal time = 0;
+    PetscInt acceptedSteps = 0;
+    bool phaseCoupled = false; // Reconstruct H/C and refresh mechanics at every RK stage.
+    std::string sourceState;
+    PetscReal sourceTime = 0;
     // Independent MFEM numbering, not the scalar cell DMDA numbering.
     DofMap stokesVelocityMap, darcyVelocityMap, pressureMap;
     LinearSystem flowSystem;
@@ -121,12 +125,19 @@ struct InitialState {
 // Retains the system, DOF maps, coefficients and accepted solve report; retrieve
 // borrowed solution fields with GetCoupledLinearSystemSolution(flowSystem,...).
 // No reconstruction or time step occurs. On failure, result remains empty.
+// solveFlow=false creates fields/mesh only, for a subsequent cell-average import;
+// that state cannot be exported until an accepted flow solve is supplied.
 PetscErrorCode Initialize(
-    MPI_Comm comm, const Configuration& configuration, InitialState& result);
+    MPI_Comm comm, const Configuration& configuration, InitialState& result,
+    bool solveFlow = true);
 PetscErrorCode DestroyInitialState(InitialState& state);
 
 // Collective. Writes cell averages per GEOMETRY owner, flow coefficients per
 // MFEM DOF owner, rank-zero setup.txt and optional input_used.yaml.
+// Also writes legacy cellH1.dat/cellC1.dat (nondimensional cell averages,
+// x-fast natural ordering) and transport_state.json with mesh/scales/time.
+// These two headerless matrices gather one field at a time on rank zero;
+// their values and ordering are independent of the MPI decomposition.
 // CSV values come from the actual distributed Vecs,
 // with an AO/scatter mapping when geometry and field ownership differ.
 // Output directory is relative to the YAML file, as in the existing examples.

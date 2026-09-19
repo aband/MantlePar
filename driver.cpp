@@ -1,10 +1,11 @@
 // MantlePar shared steady-flow driver.
 // Place this file at MantlePar/driver.cpp, alongside src/ and example/.
 //
-// Requires the previously generated schema-v2 src/core/input.{h,cpp}, the
-// reconstructed core/MFEM modules, C++17, PETSc 3.23+, yaml-cpp, and parallel
+// Requires the schema-v2 input module, core/MFEM modules, C++17,
+// PETSc 3.23+, yaml-cpp, and parallel
 // HDF5 built with the same MPICH as PETSc. Compile this translation unit once
-// and link it against mantle_mfem (which links mantle_core) and parallel HDF5.
+// and link it against mantle_input, mantle_mfem (which links mantle_core),
+// and parallel HDF5.
 // All driver-local helpers are defined below; no example/common files are used.
 //
 // Invocation, after registering the executable with CMake:
@@ -41,7 +42,7 @@
 // Active transport, phase, preCICE and restart execution require later drivers;
 // this steady driver rejects them instead of silently ignoring their settings.
 
-#include "src/core/input.h"
+#include "src/input/input.h"
 #include "src/mfem/boundary_conditions.h"
 #include "src/mfem/linear_solver.h"
 #include <hdf5.h>

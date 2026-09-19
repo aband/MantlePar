@@ -1,9 +1,11 @@
 # Included by the repository's root CMakeLists.txt after src/core.
+pkg_check_modules(LAPACKE REQUIRED IMPORTED_TARGET lapacke)
+
 add_library(mantle_mlweno
-	reconstruction.cpp
-	tensorstencilpoly.cpp
-	advectiveflux.cpp
-	diffusiveflux.cpp
+    reconstruction.cpp
+    tensorstencilpoly.cpp
+    advectiveflux.cpp
+    diffusiveflux.cpp
 )
 
 target_include_directories(mantle_mlweno
@@ -12,10 +14,10 @@ target_include_directories(mantle_mlweno
 
 target_compile_features(mantle_mlweno PUBLIC cxx_std_17)
 
-# basis.h exposes core types. Propagate core's includes and dependencies
-# (including PETSc) to targets that link against mantle_mfem.
+# Public headers expose core types; LAPACKE is used only by the implementation.
 target_link_libraries(mantle_mlweno
     PUBLIC mantle_core
+    PRIVATE PkgConfig::LAPACKE
 )
 
 if(BUILD_TESTING)

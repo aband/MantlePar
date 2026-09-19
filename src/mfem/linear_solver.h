@@ -6,7 +6,12 @@
 #include <string>
 #include <vector>
 
-enum class LinearPreconditioner { None, Schur };
+// SparseLU converts a COPY to AIJ and maps the original nested fields through
+// their global ISs. It requires one MPI rank and a nonsingular pressure system;
+// use Schur for distributed or pressure-nullspace problems. A small factor-only
+// shift supports zero pressure pivots; use an outer Krylov method (e.g. FGMRES)
+// to correct its error against the original operator.
+enum class LinearPreconditioner { None, Schur, SparseLU };
 
 struct LinearBlockSolverOptions {
     std::string kspType = KSPGMRES;

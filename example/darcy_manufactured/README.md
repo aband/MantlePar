@@ -1,7 +1,7 @@
 # Darcy manufactured-solution example
 
 Place `input.yaml` and this `README.md` in `MantlePar/example/darcy_manufactured/`.
-This case reuses the shared root-level `driver.cpp`, the schema-v2 core input
+This case reuses the shared root-level `driver.cpp`, the schema-v2 input
 reader, and the Python helpers already supplied under `example/common/`.
 Use the updated `plot_results.py` for the powers-of-ten log-log axes.
 

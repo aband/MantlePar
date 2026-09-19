@@ -1,0 +1,336 @@
+# Shared full-evolution input, with 20x20 defaults.
+# run.sh/evolve.sh apply --grid or --mesh and write the resolved input per run.
+# Direct driver use requires a matching completed preheat supplied with -preheat.
+boundary_regions:
+  coordinate_tolerance: 1.0e-12
+  definitions:
+    bottom:
+      selector:
+        mode: whole_side
+      side: bottom
+    left:
+      selector:
+        mode: whole_side
+      side: left
+    left_upper:
+      selector:
+        count: 5
+        mode: boundary_cells
+        start: 15
+      side: left
+    right:
+      selector:
+        mode: whole_side
+      side: right
+    top:
+      selector:
+        mode: whole_side
+      side: top
+    warm_top:
+      selector:
+        coordinate: x
+        interval:
+        - 0.0
+        - 0.025
+        mode: physical_interval
+      side: top
+    melt_outlet:
+      side: top
+      selector:
+        mode: physical_interval
+        coordinate: x
+        interval:
+        - 0.0
+        - 0.05
+  physical_endpoint_policy: require_boundary_vertex
+coupling:
+  backend: internal
+  internal:
+    scheme: single_pass
+    update_order:
+    - phase
+    - flow
+    - transport
+flow:
+  boundary_conditions:
+    darcy:
+      default:
+        type: dirichlet
+        value:
+          name: constant
+          parameters:
+            value: 0.0
+      dirichlet_variable: assembled_normal_velocity
+      neumann_variable: pressure_potential
+      segments:
+      - region: melt_outlet
+        type: neumann
+        value:
+          name: constant
+          parameters:
+            value: 0.0
+    stokes:
+      components: cartesian
+      default:
+        x:
+          type: dirichlet
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+        y:
+          type: neumann
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+      segments:
+      - region: bottom
+        y:
+          type: dirichlet
+          value:
+            name: constant
+            parameters:
+              value: 2.029426686961948e-05
+      - region: top
+        x:
+          type: dirichlet
+          value:
+            name: erf_ramp
+            parameters:
+              amplitude: 2.029426686961948e-05
+              cutoff_x: 0.025  # Match the warm_top endpoint.
+              origin_x: 0.0
+              width: 1.0
+        y:
+          type: dirichlet
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+      - region: left_upper
+        y:
+          type: dirichlet
+          value:
+            name: piecewise_constant
+            parameters:
+              interface_y: -5.0e-05
+              value_above: 0.0
+              value_below: 2.029426686961948e-05
+      - region: right
+        x:
+          type: neumann
+          value:
+            name: affine
+            parameters:
+              gradient:
+              - 0.0
+              - 1.0
+              value: 0.0
+        y:
+          type: neumann
+          value:
+            name: constant
+            parameters:
+              value: 0.0
+    value_absolute_tolerance: 1.0e-12
+    value_relative_tolerance: 1.0e-10
+  enabled: true
+  forcing:
+    darcy:
+      name: constant
+      parameters:
+        value:
+        - 0.0
+        - 0.0
+    darcy_pressure_source:
+      name: constant
+      parameters:
+        value: 0.0
+    stokes:
+      name: constant
+      parameters:
+        value:
+        - 0.0
+        - -1.0
+    stokes_pressure_source:
+      name: constant
+      parameters:
+        value: 0.0
+  linear_system:
+    pressure_nullspace: none
+    project_rhs: false
+    sign_convention: legacy
+  parameters:
+    coupling_average_cutoff: 0.0
+    darcy_compaction_average_cutoff: 0.0
+    formulation: legacy_rescaled
+    theta: 0.0
+  porosity: porosity
+  solver:
+    absolute_tolerance: 1.0e-12
+    divergence_tolerance: 1.0e8
+    error_if_not_converged: true
+    initial_guess_nonzero: false
+    ksp: fgmres
+    maximum_iterations: 2000
+    options_prefix: couple_flow_
+    preconditioner: sparse_lu
+    pressure:
+      absolute_tolerance: 1.0e-14
+      ksp: cg
+      maximum_iterations: 2000
+      pc: none
+      relative_tolerance: 1.0e-12
+    relative_tolerance: 1.0e-10
+    remove_pressure_nullspace: false
+    require_subsolver_convergence: true
+    require_true_residual: true
+    velocity:
+      absolute_tolerance: 1.0e-14
+      ksp: cg
+      maximum_iterations: 2000
+      pc: jacobi
+      relative_tolerance: 1.0e-12
+  system: coupled_stokes_darcy
+mesh:
+  cells:
+  - 20
+  - 20
+  domain:
+    x:
+    - 0.0
+    - 0.5
+    y:
+    - -0.5
+    - 0.0
+  family: rectangular
+  perturbation:
+    amplitude: 0.15
+    boundary_vertices: fixed
+    seed: 20260918
+output:
+  directory: output/20x20
+  save_resolved_input: true
+parallel:
+  launcher: mpiexec
+  process_grid:
+  - 1
+  - 1
+  ranks: 1
+phase:
+  enabled: true
+  model: eutectic_rescaled
+  parameters:
+    L: 5.0e5
+    Te0: 1480.0
+    Tm0: 2000.0
+    Xe: 0.25
+    alpha0: 3.0e-05
+    cp: 1200.0
+    g: 10.0
+    k0: 1.0e-08
+    mul: 1.0
+    mus: 1.0e19
+    nu: 6.5e6
+    rho: 3000.0
+    rhor: 500.0
+  pressure:
+    model: lithostatic
+    surface_y: 0.0
+porosity:
+  source: gauss_point_data
+  gauss_point_data:
+    provider: runtime_field
+    runtime_field:
+      field: phase_porosity
+  cell_average: physical_quadrature
+quadrature:
+  cell_points_per_axis: 5
+  edge_points: 5
+restart:
+  enabled: false
+schema_version: 2
+simulation:
+  mode: transient
+  name: formalEvolve_phase_coupled
+time:
+  start: 0.0
+  end: 1.0
+  maximum_steps: 20000
+  step:
+    control: cfl
+    initial: 5.0
+    minimum: 1.0e-07
+    maximum: 5.0
+    cfl: 0.4
+transport:
+  boundary_conditions:
+    composition:
+      default:
+        type: inflow_outflow
+        value:
+          name: constant
+          parameters:
+            value: 0.01
+      segments:
+      - region: warm_top
+        priority: 20
+        type: outflow
+    enthalpy:
+      default:
+        type: inflow_outflow
+        value:
+          name: constant
+          parameters:
+            value: 0.0
+      segments:
+      - region: bottom
+        type: inflow_outflow
+        value:
+          name: constant
+          parameters:
+            value: 3.35
+      - region: warm_top
+        priority: 20
+        type: outflow
+    temperature:
+      default:
+        type: zero_flux
+      segments:
+      - region: top
+        type: prescribed_temperature
+        value:
+          name: constant
+          parameters:
+            value: 0.0
+      - priority: 20
+        region: warm_top
+        type: prescribed_temperature
+        value:
+          name: constant
+          parameters:
+            value: 3.35
+  enabled: true
+  initial_conditions:
+    composition:
+      name: affine
+      parameters:
+        gradient:
+        - 0.0
+        - -0.12
+        origin:
+        - 0.0
+        - 0.0
+        value: 0.01
+    enthalpy:
+      name: constant
+      parameters:
+        value: 3.35
+  stabilizer:
+    linearization: full
+    type: local_lax_friedrichs
+  thermal_diffusion:
+    diffusivity: 8.0e-08
+    extent_fraction: 0.9
+    number_of_samples: 4

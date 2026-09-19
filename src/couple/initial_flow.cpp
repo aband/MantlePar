@@ -1,7 +1,9 @@
 #include "initialization.h"
+#include "state_reconstruction.h"
 
 #include <cmath>
 #include <exception>
+#include <map>
 
 namespace mantle::couple {
 namespace {
@@ -42,13 +44,28 @@ PetscReal Trace(const input::Value& specification, const ScalarProfile& profile,
 }
 
 PetscErrorCode SamplePorosity(const Configuration& c, InitialState& s,
-                             const GaussRule1D& cellRule, const GaussRule1D& edgeRule)
+                             const GaussRule1D& cellRule, const GaussRule1D& edgeRule,
+                             const StateReconstruction* reconstruction)
 {
     PetscFunctionBeginUser;
     PetscCall(Local([&]() -> PetscErrorCode {
         const auto range=s.mesh.OwnedCells();
         const auto& initial=c.input.transport.settings.At("initial_conditions");
         const auto nc=cellRule.points.size(), ne=edgeRule.points.size();
+        std::map<std::pair<PetscInt,PetscInt>,bool> wetCells;
+        const auto isWet=[&](MeshIndex index,bool& wet) -> PetscErrorCode {
+            const auto key=std::make_pair(index.i,index.j);
+            const auto found=wetCells.find(key);
+            if (found!=wetCells.end()) { wet=found->second; return PETSC_SUCCESS; }
+            QuadVertices v; PetscCall(reconstruction->Mesh().GetCellCorners(index,v));
+            wet=false;
+            for (auto x:cellRule.points) for (auto y:cellRule.points) {
+                const auto p=MapCellPoint(Point{{x,y}},v); PetscReal h,composition;
+                PetscCall(reconstruction->Evaluate(index,p,h,composition));
+                wet=wet || c.phase.evaluate(h,composition,c.pressure(p,s.time)).phil>0;
+            }
+            wetCells[key]=wet; return PETSC_SUCCESS;
+        };
         for (PetscInt j=range.begin.j;j<range.end.j;++j) for (PetscInt i=range.begin.i;i<range.end.i;++i) {
             QuadVertices v; auto error=s.mesh.GetCellCorners({i,j},v); if (error) return error;
             LocalPorositySamples samples; samples.cell.resize(nc*nc);
@@ -56,7 +73,9 @@ PetscErrorCode SamplePorosity(const Configuration& c, InitialState& s,
             for (std::size_t b=0;b<nc;++b) for (std::size_t a=0;a<nc;++a) {
                 const Point reference{{cellRule.points[a],cellRule.points[b]}};
                 const auto p=MapCellPoint(reference,v);
-                const auto phi=c.flow.dryPorosity?0:c.phase.evaluate(c.initialEnthalpy(p,s.time),c.initialComposition(p,s.time),c.pressure(p,s.time)).phil;
+                PetscReal h=c.initialEnthalpy(p,s.time), composition=c.initialComposition(p,s.time);
+                if (reconstruction) PetscCall(reconstruction->Evaluate({i,j},p,h,composition));
+                const auto phi=c.flow.dryPorosity?0:c.phase.evaluate(h,composition,c.pressure(p,s.time)).phil;
                 samples.cell[b*nc+a]=phi;
                 const auto w=cellRule.weights[a]*cellRule.weights[b]*CellJacobian(reference,v);
                 sum+=w*phi; area+=w;
@@ -72,6 +91,31 @@ PetscErrorCode SamplePorosity(const Configuration& c, InitialState& s,
                 samples.edge[e].resize(ne);
                 for (std::size_t q=0;q<ne;++q) {
                     const auto p=MapEdgePoint(edgeRule.points[q],edge);
+                    if (reconstruction) {
+                        PetscReal h,composition;
+                        PetscCall(reconstruction->Evaluate({i,j},p,h,composition));
+                        const auto a=c.phase.evaluate(h,composition,c.pressure(p,s.time)).phil;
+                        auto b=a;
+                        if (!topology.IsBoundary()) {
+                            auto neighbor=*topology.leftCell;
+                            if (neighbor.i==i && neighbor.j==j) neighbor=*topology.rightCell;
+                            PetscCall(reconstruction->Evaluate(neighbor,p,h,composition));
+                            b=c.phase.evaluate(h,composition,c.pressure(p,s.time)).phil;
+                        }
+                        samples.edge[e][q]=(a+b)>0?2*a*b/(a+b):0;
+                        // (3.123): a quadrature-dry cell has zero scaled
+                        // divergence. Apply this on BOTH sides of a shared
+                        // face, preserving normal-flux continuity and (3.131).
+                        bool wet; PetscCall(isWet({i,j},wet));
+                        if (!wet) samples.edge[e][q]=0;
+                        if (!topology.IsBoundary()) {
+                            auto neighbor=*topology.leftCell;
+                            if (neighbor.i==i && neighbor.j==j) neighbor=*topology.rightCell;
+                            PetscCall(isWet(neighbor,wet));
+                            if (!wet) samples.edge[e][q]=0;
+                        }
+                        continue;
+                    }
                     const auto phaseTrace=[&](bool below) {
                         if (c.flow.dryPorosity) return 0.0;
                         const auto h=Trace(initial.At("enthalpy"),c.initialEnthalpy,p,edge,s.time,c.input.boundaryRegions.coordinateTolerance,below);
@@ -135,7 +179,8 @@ PetscErrorCode PressureLoad(MPI_Comm comm, const InitialState& s, const GaussRul
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 
-PetscErrorCode Build(MPI_Comm comm, const Configuration& c, InitialState& s, Workspace& w)
+PetscErrorCode Build(MPI_Comm comm, const Configuration& c, InitialState& s, Workspace& w,
+                    const StateReconstruction* reconstruction = nullptr)
 {
     PetscFunctionBeginUser;
     PetscCall(s.stokesVelocityMap.Initialize(s.vertexDM,s.mesh,DofSpace::BRVelocity));
@@ -144,7 +189,7 @@ PetscErrorCode Build(MPI_Comm comm, const Configuration& c, InitialState& s, Wor
     GaussRule1D cell,edge;
     PetscCall(Agree(comm,CreateGaussRule(c.input.quadrature.cellPointsPerAxis,cell)));
     PetscCall(Agree(comm,CreateGaussRule(c.input.quadrature.edgePoints,edge)));
-    PetscCall(Agree(comm,SamplePorosity(c,s,cell,edge)));
+    PetscCall(Agree(comm,SamplePorosity(c,s,cell,edge,reconstruction)));
     const CellPorosityFunction porosity=[&](MeshIndex index,LocalPorositySamples& samples) -> PetscErrorCode {
         const auto range=s.mesh.OwnedCells();
         if (!range.Contains(index)) return PETSC_ERR_ARG_OUTOFRANGE;
@@ -185,7 +230,7 @@ PetscErrorCode Build(MPI_Comm comm, const Configuration& c, InitialState& s, Wor
     // A nonconverged iterate cannot become a valid initialized transport state,
     // even with the lower-level solver's errorIfNotConverged policy disabled.
     PetscCheck(s.flowReport.converged,comm,PETSC_ERR_NOT_CONVERGED,"Initial Darcy-Stokes solve did not satisfy its acceptance policy");
-    PetscCall(PetscPrintf(comm,"  Initial Darcy-Stokes solve: %" PetscInt_FMT " iterations, true relative residual %.3e\n",
+    if (!reconstruction) PetscCall(PetscPrintf(comm,"  Initial Darcy-Stokes solve: %" PetscInt_FMT " iterations, true relative residual %.3e\n",
         s.flowReport.iterations,static_cast<double>(s.flowReport.relativeTrueResidualNorm)));
     PetscFunctionReturn(PETSC_SUCCESS);
 }
@@ -199,6 +244,34 @@ PetscErrorCode InitializeFlow(MPI_Comm comm, const Configuration& c, InitialStat
     const auto error=Build(comm,c,s,workspace);
     const auto cleanup=workspace.Clear();
     PetscCall(error); PetscCall(cleanup);
+    PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+PetscErrorCode SolveReconstructedFlow(MPI_Comm comm,const Configuration& c,InitialState& s,
+                                    const StateReconstruction& reconstruction)
+{
+    PetscFunctionBeginUser;
+    // Build an independent candidate; retain the old accepted solve on failure.
+    InitialState candidate;
+    candidate.vertexDM=s.vertexDM; candidate.mesh=s.mesh; candidate.time=s.time;
+    Workspace workspace;
+    const auto error=Build(comm,c,candidate,workspace,&reconstruction);
+    const auto cleanup=workspace.Clear();
+    if (error || cleanup) {
+        (void)DestroyLinearSystem(candidate.flowSystem);
+        PetscCall(error); PetscCall(cleanup);
+    }
+    auto& a=s.flowSystem; auto& b=candidate.flowSystem;
+    std::swap(a.matrix,b.matrix); std::swap(a.rhs,b.rhs); std::swap(a.solution,b.solution);
+    std::swap(a.pressureNullspace,b.pressureNullspace); std::swap(a.kind,b.kind);
+    std::swap(a.removedRhsComponent,b.removedRhsComponent);
+    for (int k=0;k<4;++k) std::swap(a.coupledFieldIS[k],b.coupledFieldIS[k]);
+    s.stokesVelocityMap=std::move(candidate.stokesVelocityMap);
+    s.darcyVelocityMap=std::move(candidate.darcyVelocityMap);
+    s.pressureMap=std::move(candidate.pressureMap);
+    s.flowPorosity=std::move(candidate.flowPorosity);
+    s.flowReport=std::move(candidate.flowReport);
+    PetscCall(DestroyLinearSystem(candidate.flowSystem));
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 } // namespace mantle::couple

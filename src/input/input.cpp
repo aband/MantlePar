@@ -550,7 +550,7 @@ void ReadFlow(const Value& root, InputConfig& input, const InputExtensions& exte
                 *solver, "options_prefix must have 1-64 ASCII letters, digits or underscores");
         s.ksp = Text(*solver, "ksp", "fgmres");
         if (solver->Find("preconditioner"))
-            s.preconditioner = Choice(solver->At("preconditioner"), {"schur", "none"});
+            s.preconditioner = Choice(solver->At("preconditioner"), {"schur", "none", "sparse_lu"});
         Tolerances(*solver, s.relativeTolerance, s.absoluteTolerance, s.divergenceTolerance, s.maximumIterations);
         s.initialGuessNonzero = Boolean(*solver, "initial_guess_nonzero", false);
         if (solver->Find("velocity")) s.velocity = BlockSolver(solver->At("velocity"), s.velocity);

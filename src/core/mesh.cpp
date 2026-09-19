@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "quad_validation.h"
 
 #include <algorithm>
 #include <array>
@@ -51,39 +52,6 @@ Point VertexAt(PetscInt i, PetscInt j, PetscInt M, PetscInt N,
     if (j == 0) point.p[1] = mp.ystart;
     if (j == N - 1) point.p[1] = mp.ystart + mp.H;
     return point;
-}
-
-bool ValidQuad(const std::array<Point, 4>& p)
-{
-    PetscReal xmin = p[0].p[0], xmax = xmin;
-    PetscReal ymin = p[0].p[1], ymax = ymin;
-    for (const auto& point : p) {
-        if (PetscIsInfOrNanReal(point.p[0]) ||
-            PetscIsInfOrNanReal(point.p[1])) return false;
-        xmin = std::min(xmin, point.p[0]);
-        xmax = std::max(xmax, point.p[0]);
-        ymin = std::min(ymin, point.p[1]);
-        ymax = std::max(ymax, point.p[1]);
-    }
-
-    const PetscReal sx = xmax - xmin, sy = ymax - ymin;
-    if (PetscIsInfOrNanReal(sx) || PetscIsInfOrNanReal(sy) ||
-        sx <= 0.0 || sy <= 0.0) return false;
-
-    // Scale the axes separately so rectangular aspect ratio alone is not
-    // mistaken for a folded cell. These are the four Q1 corner determinants,
-    // divided by sx*sy (and without the 1/4 for reference coordinates [-1,1]).
-    constexpr PetscReal tolerance = 64.0 * PETSC_MACHINE_EPSILON;
-    for (std::size_t k = 0; k < p.size(); ++k) {
-        const Point& next = p[(k + 1) % 4];
-        const Point& prev = p[(k + 3) % 4];
-        const PetscReal ux = (next.p[0] - p[k].p[0]) / sx;
-        const PetscReal uy = (next.p[1] - p[k].p[1]) / sy;
-        const PetscReal vx = (prev.p[0] - p[k].p[0]) / sx;
-        const PetscReal vy = (prev.p[1] - p[k].p[1]) / sy;
-        if (!(ux * vy - uy * vx > tolerance)) return false;
-    }
-    return true;
 }
 
 PetscErrorCode CheckLayout(DM dm, PetscInt& M, PetscInt& N)
@@ -201,7 +169,8 @@ PetscErrorCode ValidateMesh(DM dm, Vec vertices)
                     p[k].p[d] = PetscRealPart(value);
                 }
             }
-            if (!ValidQuad(p)) localBad = 1;
+            if (mantle::detail::CheckQuadGeometry(p) != mantle::detail::QuadValidity::Valid)
+                localBad = 1;
         }
     }
     PetscCall(DMDAVecRestoreArrayDOFRead(dm, local, &a));
@@ -214,4 +183,3 @@ PetscErrorCode ValidateMesh(DM dm, Vec vertices)
                "degenerate, or nearly singular quadrilateral");
     PetscFunctionReturn(PETSC_SUCCESS);
 }
-

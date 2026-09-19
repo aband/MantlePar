@@ -1,6 +1,6 @@
 # Dry 2D corner preheat, adapted from MantleSolver_cpp/src/corner/formalpreheat. All coordinates/time/transport fields
 # are nondimensional; material inputs are SI and phase pressure is in Pa.
-# Run mantle_couple_init, not the steady-flow mantle_driver executable.
+# Run mantle_couple_preheat for time evolution, or mantle_couple_init for initialization only.
 schema_version: 2
 simulation:
   name: couple_formalpreheat_initialization
@@ -82,7 +82,7 @@ transport:
       default: {type: zero_flux}
       segments:
         - {region: top, type: prescribed_temperature, value: {name: constant, parameters: {value: 0.0}}}
-        - {region: warm_top, priority: 2, type: prescribed_temperature, value: {name: constant, parameters: {value: 3.35}}}
+        - {region: warm_top, priority: 20, type: prescribed_temperature, value: {name: constant, parameters: {value: 3.35}}}
   stabilizer:
     type: local_lax_friedrichs
     linearization: full
@@ -120,7 +120,8 @@ flow:
         - region: bottom
           y: {type: dirichlet, value: {name: constant, parameters: {value: 2.029426686961948e-5}}}
         - region: top
-          x: {type: dirichlet, value: {name: erf_ramp, parameters: {amplitude: 2.029426686961948e-5, origin_x: 0.0, cutoff_x: 0.1, width: 1.0}}}
+          # The velocity ramp reaches V0 at the warm_top endpoint.
+          x: {type: dirichlet, value: {name: erf_ramp, parameters: {amplitude: 2.029426686961948e-5, origin_x: 0.0, cutoff_x: 0.025, width: 1.0}}}
           y: {type: dirichlet, value: {name: constant, parameters: {value: 0.0}}}
         - region: left_upper
           y: {type: dirichlet, value: {name: piecewise_constant, parameters: {interface_y: -0.00005, value_below: 2.029426686961948e-5, value_above: 0.0}}}

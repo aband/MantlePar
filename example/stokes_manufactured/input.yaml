@@ -1,4 +1,4 @@
-# Run with the shared MantlePar/driver.cpp and schema-v2 core input reader.
+# Run with the shared MantlePar/driver.cpp and schema-v2 input reader.
 # All relative paths are resolved from this input.yaml directory.
 schema_version: 2
 

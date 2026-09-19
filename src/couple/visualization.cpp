@@ -1,4 +1,5 @@
 #include "visualization.h"
+#include "state_reconstruction.h"
 
 #include <algorithm>
 #include <array>
@@ -61,13 +62,20 @@ constexpr const char* columns =
     "entity_id,q,x,y,weight,H,C,T,temperature_K,phi,phi1,phi2,cl,cs,"
     "phase_pressure_Pa,region,has_liquid,has_solid,derivatives_finite,"
     "dT_dH,dT_dC,enthalpy_residual,composition_residual,fraction_residual,"
-    "x_m,y_m,h_J_kg,dT_dh_K_kg_J,dT_dC_K\n";
+    "x_m,y_m,h_J_kg,dT_dh_K_kg_J,dT_dC_K,eutectic_temperature_K\n";
 
 void Sample(std::ostream& out, const Configuration& c, PetscReal time,
             PetscInt id, std::size_t q, const Point& point, PetscReal weight,
-            std::array<double,3>& errors)
+            std::array<double,3>& errors, const StateReconstruction* reconstruction=nullptr,
+            MeshIndex cell={})
 {
-    const double h = c.initialEnthalpy(point,time), composition = c.initialComposition(point,time);
+    PetscReal h,composition;
+    if (reconstruction) {
+        if (reconstruction->Evaluate(cell,point,h,composition))
+            throw std::runtime_error("Could not sample evolved H/C reconstruction");
+    } else {
+        h=c.initialEnthalpy(point,time); composition=c.initialComposition(point,time);
+    }
     const double pressure = c.pressure(point,time);
     const auto phase = c.phase.evaluate(h,composition,pressure);
     const auto& scale = c.phase.derived();
@@ -90,7 +98,7 @@ void Sample(std::ostream& out, const Configuration& c, PetscReal time,
     }
     out << ',' << point.p[0]*scale.l0 << ',' << point.p[1]*scale.l0 << ',' << h*scale.h0
         << ',' << (finite?phase.dTD_dHD*scale.dT/scale.h0:nan)
-        << ',' << (finite?phase.dTD_dCD*scale.dT:nan) << '\n';
+        << ',' << (finite?phase.dTD_dCD*scale.dT:nan) << ',' << phase.Tep*scale.dT << '\n';
 }
 
 void Block(std::ostream& out, const LinearBlockSolverOptions& b)
@@ -107,6 +115,8 @@ void Manifest(std::ostream& out, const Configuration& c, const InitialState& s,
     out << std::boolalpha << "{\n\"schema_version\":2,\"status\":\"complete\",\n"
         << "\"simulation\":" << Quote(c.input.simulation.name) << ",\"source\":" << Quote(c.input.sourceFile)
         << ",\"time\":" << s.time << ",\"ranks\":" << ranks
+        << ",\"accepted_steps\":" << s.acceptedSteps << ",\"flow_time\":" << (s.phaseCoupled?s.time:c.input.time.start)
+        << ",\"evolution_model\":" << Quote(s.phaseCoupled?"full phase coupling":s.acceptedSteps?"legacy dry preheat":"initialization")
         << ",\"mesh_family\":" << Quote(c.input.mesh.family)
         << ",\"nx\":" << s.mesh.CellDimensions().i << ",\"ny\":" << s.mesh.CellDimensions().j
         << ",\"cell_count\":" << s.mesh.CellCount() << ",\"edge_count\":" << s.mesh.EdgeCount()
@@ -114,7 +124,9 @@ void Manifest(std::ostream& out, const Configuration& c, const InitialState& s,
         << ",\"edge_points\":" << c.input.quadrature.edgePoints
         << ",\"domain\":[" << c.input.mesh.x[0] << ',' << c.input.mesh.x[1] << ','
         << c.input.mesh.y[0] << ',' << c.input.mesh.y[1] << "],\n"
-        << "\"sampling\":\"phase at mapped cell centers; finite-element velocity at physical Gauss points\","
+        << "\"sampling\":" << Quote(s.phaseCoupled?"bounded ML-WENO H/C phase at cell centers; current coupled flow at Gauss points":s.acceptedSteps?
+            "phase of evolved ML-WENO H/C at cell centers; fixed initial flow at Gauss points":
+            "phase at mapped cell centers; finite-element velocity at physical Gauss points") << ','
         << "\"flow_status\":\"solved\",\"flow_porosity\":" << Quote(c.flow.dryPorosity?"prescribed zero (legacy dry preheat)":"equilibrium phase porosity")
         << ",\"flow_theta\":" << c.flow.material.theta << ",\"pressure_model\":"
         << Quote(c.input.phase.settings.At("pressure").At("model").AsString())
@@ -123,7 +135,7 @@ void Manifest(std::ostream& out, const Configuration& c, const InitialState& s,
         << ",\"enthalpy_Jkg\":" << d.h0 << ",\"time_s\":" << d.t0 << ",\"latent_heat\":" << d.LD << "},\n"
         << "\"solver\":{\"status\":\"solved; settings are configured defaults, see solve for measured results\","
         << "\"method\":" << Quote(solver.kspType) << ",\"preconditioner\":"
-        << Quote(solver.preconditioner == LinearPreconditioner::Schur ? "full Schur field split" : "none")
+        << Quote(solver.preconditioner == LinearPreconditioner::Schur ? "full Schur field split" : solver.preconditioner == LinearPreconditioner::SparseLU ? "sparse LU (serial AIJ)" : "none")
         << ",\"options_prefix\":" << Quote(solver.optionsPrefix)
         << ",\"rtol\":" << solver.relativeTolerance << ",\"atol\":" << solver.absoluteTolerance
         << ",\"dtol\":" << solver.divergenceTolerance << ",\"max_iterations\":" << solver.maximumIterations
@@ -175,7 +187,8 @@ void Manifest(std::ostream& out, const Configuration& c, const InitialState& s,
 }
 } // namespace
 
-PetscErrorCode WriteInitializationVisualization(MPI_Comm comm, const Configuration& c, const InitialState& s)
+PetscErrorCode WriteVisualizationImpl(MPI_Comm comm, const Configuration& c, const InitialState& s,
+                                    const StateReconstruction* reconstruction)
 {
     PetscFunctionBeginUser;
     PetscCall(Agree(comm, s.IsEmpty() || !s.mesh.IsInitialized() || !s.flowReport.converged ? PETSC_ERR_ARG_WRONGSTATE : PETSC_SUCCESS));
@@ -212,13 +225,13 @@ PetscErrorCode WriteInitializationVisualization(MPI_Comm comm, const Configurati
             for (const auto& point:corners) mesh << ',' << point.p[0] << ',' << point.p[1];
             mesh << '\n'; ++localCounts[2];
             PetscReal area=0; error=s.mesh.GetCellArea({i,j},area); if (error) return error;
-            Sample(centers,c,s.time,id,0,MapCellPoint(Point{{0,0}},corners),area,localErrors);
+            Sample(centers,c,s.time,id,0,MapCellPoint(Point{{0,0}},corners),area,localErrors,reconstruction,{i,j});
             ++localCounts[3];
             const auto n=cellRule.points.size();
             for (std::size_t b=0; b<n; ++b) for (std::size_t a=0; a<n; ++a) {
                 const Point reference{{cellRule.points[a],cellRule.points[b]}};
                 Sample(cells,c,s.time,id,b*n+a,MapCellPoint(reference,corners),
-                       cellRule.weights[a]*cellRule.weights[b]*CellJacobian(reference,corners),localErrors);
+                       cellRule.weights[a]*cellRule.weights[b]*CellJacobian(reference,corners),localErrors,reconstruction,{i,j});
                 ++localCounts[0];
             }
         }
@@ -226,11 +239,14 @@ PetscErrorCode WriteInitializationVisualization(MPI_Comm comm, const Configurati
         // counting shared edges once per adjacent cell or MPI rank.
         for (const auto id:s.mesh.OwnedEdgeIds()) {
             EdgeVertices vertices; PetscReal length=0; Point normal;
+            EdgeTopology topology;
+            auto topologyError=s.mesh.GetEdgeTopology(id,topology); if (topologyError) return topologyError;
+            const auto cell=topology.leftCell?*topology.leftCell:*topology.rightCell;
             auto error=s.mesh.GetEdgeVertices(id,vertices); if (error) return error;
             error=GetEdgeGeometry(vertices,length,normal); if (error) return error;
             for (std::size_t q=0; q<edgeRule.points.size(); ++q) {
                 Sample(edges,c,s.time,id,q,MapEdgePoint(edgeRule.points[q],vertices),
-                       0.5*length*edgeRule.weights[q],localErrors);
+                       0.5*length*edgeRule.weights[q],localErrors,reconstruction,cell);
                 ++localCounts[1];
             }
         }
@@ -267,6 +283,17 @@ PetscErrorCode WriteInitializationVisualization(MPI_Comm comm, const Configurati
         return PETSC_SUCCESS;
     })));
     PetscCall(PetscPrintf(comm,"  Cell-center phase and Gauss-point flow data: %s\n",(directory/"visualization.json").string().c_str()));
+    PetscFunctionReturn(PETSC_SUCCESS);
+}
+PetscErrorCode WriteInitializationVisualization(MPI_Comm comm,const Configuration& c,const InitialState& s)
+{
+    PetscFunctionBeginUser;
+    StateReconstruction reconstruction;
+    auto error=(s.acceptedSteps || s.phaseCoupled)?reconstruction.Initialize(comm,s):PETSC_SUCCESS;
+    if (!error && s.phaseCoupled) error=reconstruction.Limit(c);
+    if (!error) error=WriteVisualizationImpl(comm,c,s,(s.acceptedSteps || s.phaseCoupled)?&reconstruction:nullptr);
+    const auto cleanup=reconstruction.Destroy();
+    PetscCall(error); PetscCall(cleanup);
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 } // namespace mantle::couple

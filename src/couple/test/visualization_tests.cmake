@@ -3,11 +3,26 @@ include_guard(GLOBAL)
 find_package(Python3 QUIET COMPONENTS Interpreter)
 set(_couple_python_status 1)
 if(Python3_Interpreter_FOUND)
-    execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import numpy, matplotlib"
+    execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import numpy, matplotlib, scipy"
         RESULT_VARIABLE _couple_python_status OUTPUT_QUIET ERROR_QUIET)
 endif()
 
 if(_couple_python_status EQUAL 0)
+    add_test(NAME couple_preheat
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/test_preheat.py"
+            --executable $<TARGET_FILE:mantle_couple_preheat>
+            --input "${CMAKE_CURRENT_LIST_DIR}/../example/formalpreheat/input.yaml"
+            --output-dir "${CMAKE_CURRENT_BINARY_DIR}/preheat/serial")
+    set_tests_properties(couple_preheat PROPERTIES TIMEOUT 240 LABELS "couple;preheat;serial")
+    if(MPIEXEC_EXECUTABLE AND MPIEXEC_NUMPROC_FLAG)
+        add_test(NAME couple_preheat_mpi_2
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/test_preheat.py"
+                --executable $<TARGET_FILE:mantle_couple_preheat>
+                --input "${CMAKE_CURRENT_LIST_DIR}/../example/formalpreheat/input.yaml"
+                --output-dir "${CMAKE_CURRENT_BINARY_DIR}/preheat/mpi"
+                --mpiexec "${MPIEXEC_EXECUTABLE}" "--numproc-flag=${MPIEXEC_NUMPROC_FLAG}")
+        set_tests_properties(couple_preheat_mpi_2 PROPERTIES PROCESSORS 2 TIMEOUT 180 LABELS "couple;preheat;mpi")
+    endif()
     foreach(_couple_case IN ITEMS column perturbed_quad formalpreheat)
         add_test(NAME couple_visualization_${_couple_case}
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/test_visualization.py"
@@ -37,7 +52,7 @@ if(_couple_python_status EQUAL 0)
     set_tests_properties(couple_visualization_phase_limits_and_plots PROPERTIES
         TIMEOUT 180 LABELS "couple;visualization;phase;plot")
 else()
-    message(STATUS "Couple visualization tests require Python, numpy and matplotlib; C++ export remains available")
+    message(STATUS "Couple visualization tests require Python, numpy, matplotlib and scipy; C++ export remains available")
 endif()
 unset(_couple_python_status)
 unset(_couple_case)

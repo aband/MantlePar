@@ -1,4 +1,5 @@
 #include "integral.h"
+#include "quad_validation.h"
 
 #include <petscdt.h>
 #include <algorithm>
@@ -44,39 +45,17 @@ PetscErrorCode ValidateGaussRule(const GaussRule1D& rule)
 PetscErrorCode ValidateQuad(const QuadVertices& corners)
 {
     PetscFunctionBeginUser;
-    PetscReal xmin = corners[0].p[0], xmax = xmin;
-    PetscReal ymin = corners[0].p[1], ymax = ymin;
-    for (const Point& point : corners) {
-        PetscCheck(!PetscIsInfOrNanReal(point.p[0]) &&
-                   !PetscIsInfOrNanReal(point.p[1]),
-                   PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE,
-                   "Quadrilateral coordinates must be finite");
-        xmin = std::min(xmin, point.p[0]);
-        xmax = std::max(xmax, point.p[0]);
-        ymin = std::min(ymin, point.p[1]);
-        ymax = std::max(ymax, point.p[1]);
-    }
-    const PetscReal sx = xmax - xmin, sy = ymax - ymin;
-    PetscCheck(!PetscIsInfOrNanReal(sx) && !PetscIsInfOrNanReal(sy) &&
-               sx > 0.0 && sy > 0.0,
+    using mantle::detail::QuadValidity;
+    const auto validity = mantle::detail::CheckQuadGeometry(corners);
+    PetscCheck(validity != QuadValidity::NonfiniteCoordinates,
+               PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE,
+               "Quadrilateral coordinates must be finite");
+    PetscCheck(validity != QuadValidity::InvalidExtents,
                PETSC_COMM_SELF, PETSC_ERR_ARG_OUTOFRANGE,
                "Quadrilateral extents must be finite and positive");
-
-    // det(J) is affine on the reference square: check its four corners.
-    // Separate axis scaling matches mesh.cpp and permits thin rectangles.
-    const PetscReal tolerance = 64.0 * PETSC_MACHINE_EPSILON;
-    for (std::size_t k = 0; k < corners.size(); ++k) {
-        const Point& point = corners[k];
-        const Point& next = corners[(k + 1) % 4];
-        const Point& prev = corners[(k + 3) % 4];
-        const PetscReal ux = (next.p[0] - point.p[0]) / sx;
-        const PetscReal uy = (next.p[1] - point.p[1]) / sy;
-        const PetscReal vx = (prev.p[0] - point.p[0]) / sx;
-        const PetscReal vy = (prev.p[1] - point.p[1]) / sy;
-        PetscCheck(ux * vy - uy * vx > tolerance,
-                   PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG,
-                   "Quadrilateral must be counterclockwise, convex and nonsingular");
-    }
+    PetscCheck(validity == QuadValidity::Valid,
+               PETSC_COMM_SELF, PETSC_ERR_ARG_WRONG,
+               "Quadrilateral must be counterclockwise, convex and nonsingular");
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 

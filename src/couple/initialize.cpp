@@ -21,7 +21,7 @@ int main(int argc,char** argv)
     PetscErrorCode error=PetscInitialize(&argc,&argv,nullptr,
         "Initialize H/C and phase, then solve coupled Darcy-Stokes flow.\n"
         "  -input path/to/input.yaml\n"
-        "Writes cell averages, Gauss-point visualization data and setup.txt; performs no time stepping.\n");
+        "Writes cellH1.dat/cellC1.dat, cell-average CSV, visualization data and setup.txt; no time stepping.\n");
     if (error) return static_cast<int>(error);
     mantle::couple::InitialState state;
     error=Run(state);

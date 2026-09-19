@@ -22,7 +22,8 @@ def run(args, text, name, ranks=1):
     root = (args.output_dir / name).resolve()
     root.mkdir(parents=True, exist_ok=True)
     text = text.replace("directory: output/{mesh_family}", "directory: " + json.dumps(str(root)))
-    text = text.replace("ranks: 1", f"ranks: {ranks}").replace("process_grid: [1, 1]", f"process_grid: [1, {ranks}]")
+    # Split x so PETSc's global ordering differs from x-fast natural ordering.
+    text = text.replace("ranks: 1", f"ranks: {ranks}").replace("process_grid: [1, 1]", f"process_grid: [{ranks}, 1]")
     path = root / "case.yaml"
     path.write_text(text)
     command = [str(args.executable)]
@@ -34,6 +35,22 @@ def run(args, text, name, ranks=1):
 
 
 def check_quadrature(root, m, data):
+    handoff = json.loads((root / "transport_state.json").read_text())
+    check(handoff["schema_version"] == 1 and handoff["status"] == "complete", "Incomplete H/C export")
+    check(handoff["representation"] == "cell averages" and handoff["ordering"] == "j*nx+i", "Incorrect H/C layout")
+    check(handoff["H"]["units"] == "h/(cp*dT)" and handoff["C"]["units"] == "fraction", "Incorrect legacy units")
+    for key in ("nx", "ny"):
+        check(handoff["mesh"][key] == m[key], "Incorrect H/C mesh dimensions")
+    check(handoff["mesh"]["family"] == m["mesh_family"], "Incorrect H/C mesh family")
+    np.testing.assert_array_equal(handoff["mesh"]["domain"], m["domain"])
+    for key, scale in handoff["scales"].items():
+        check(scale == m["scales"][key], "Incorrect H/C reference scales")
+    check(handoff["time"] == m["time"], "Incorrect H/C export time")
+    np.testing.assert_allclose(handoff["time_s"], m["time"]*m["scales"]["time_s"])
+    # Parse the same plain whitespace values as legacy fscanf, with no header.
+    restart = {key: np.loadtxt(root/handoff[key]["file"], ndmin=2) for key in ("H", "C")}
+    for field in restart.values():
+        check(field.shape == (m["ny"], m["nx"]) and np.all(np.isfinite(field)), "Malformed H/C matrix")
     cell = data["cells"]
     np.testing.assert_allclose(cell["weight"].sum(), (m["domain"][1]-m["domain"][0])*(m["domain"][3]-m["domain"][2]), rtol=2e-12)
     for kind in ("cells", "edges", "centers"):
@@ -46,7 +63,15 @@ def check_quadrature(root, m, data):
     # Integrals of Gauss values must recover the independently stored Vec data.
     for entry in m["files"]:
         averages = np.atleast_1d(np.genfromtxt(root / f"initial_rank_{entry['rank']:06d}.csv", delimiter=",", names=True))
+        for column, source, scale in [("h_J_kg", "H", m["scales"]["enthalpy_Jkg"]),
+                                      ("temperature_K", "T", m["scales"]["temperature_K"]),
+                                      ("x_centroid_m", "x_centroid", m["scales"]["length_m"]),
+                                      ("y_centroid_m", "y_centroid", m["scales"]["length_m"]),
+                                      ("area_m2", "area", m["scales"]["length_m"]**2)]:
+            np.testing.assert_allclose(averages[column], averages[source]*scale, rtol=2e-13)
         for row in averages:
+            for field in restart:
+                check(restart[field][int(row["j"]), int(row["i"])] == row[field], "Export changed or reordered stored H/C averages")
             points = cell[cell["entity_id"] == row["cell_id"]]
             np.testing.assert_allclose(points["weight"].sum(), row["area"], rtol=2e-12)
             for field in ("H", "C", "T", "phi"):
@@ -56,6 +81,9 @@ def check_quadrature(root, m, data):
         for kind in ("cells", "edges", "centers"):
             np.testing.assert_allclose(data[kind]["phase_pressure_Pa"], -3000*10*m["scales"]["length_m"]*data[kind]["y"], rtol=2e-12)
     centers=np.sort(data["centers"],order="entity_id")
+    if m["mesh_family"] == "perturbed_quadrilateral":
+        check(np.max(np.abs(restart["C"].ravel()-centers["C"])) > 1e-6,
+              "H/C handoff incorrectly used center samples instead of nonlinear-profile averages")
     mesh=np.sort(data["mesh"],order="cell_id")
     for axis in ("x","y"):
         expected=sum(mesh[f"{axis}{k}"] for k in range(4))/4
@@ -134,6 +162,8 @@ def main():
     if args.mpiexec:
         mpi_root, mpi_m, mpi_data = run(args, text, "mpi", ranks=2)
         check_quadrature(mpi_root, mpi_m, mpi_data)
+        for filename in ("cellH1.dat", "cellC1.dat"):
+            np.testing.assert_allclose(np.loadtxt(root/filename), np.loadtxt(mpi_root/filename), rtol=2e-13, atol=2e-14)
         def dofs(directory, metadata):
             rows = np.concatenate([np.atleast_1d(np.genfromtxt(directory/e["flow_dofs"], delimiter=",", names=True,
                                    dtype=None, encoding="utf-8")) for e in metadata["files"]])

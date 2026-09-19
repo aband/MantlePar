@@ -1,5 +1,5 @@
-#ifndef MANTLE_CORE_INPUT_H
-#define MANTLE_CORE_INPUT_H
+#ifndef MANTLE_INPUT_H
+#define MANTLE_INPUT_H
 
 #include <petscsys.h>
 

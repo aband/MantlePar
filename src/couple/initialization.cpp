@@ -360,7 +360,8 @@ FlowSetup FlowConfiguration(const input::InputConfig& c)
     out.material.couplingAverageCutoff=c.flow.couplingAverageCutoff;
     const auto& in=c.flow.solver; auto& solver=out.solver;
     solver.optionsPrefix=in.optionsPrefix; solver.kspType=in.ksp;
-    solver.preconditioner=in.preconditioner=="schur" ? LinearPreconditioner::Schur : LinearPreconditioner::None;
+    solver.preconditioner=in.preconditioner=="schur" ? LinearPreconditioner::Schur :
+        in.preconditioner=="sparse_lu" ? LinearPreconditioner::SparseLU : LinearPreconditioner::None;
     solver.relativeTolerance=in.relativeTolerance; solver.absoluteTolerance=in.absoluteTolerance;
     solver.divergenceTolerance=in.divergenceTolerance; solver.maximumIterations=in.maximumIterations;
     solver.initialGuessNonzero=in.initialGuessNonzero;
@@ -505,7 +506,7 @@ PetscErrorCode EvaluateThermalBoundary(const std::vector<BoundaryRule<ThermalCon
 }
 
 namespace {
-PetscErrorCode BuildInitialState(MPI_Comm comm, const Configuration& c, InitialState& s)
+PetscErrorCode BuildInitialState(MPI_Comm comm, const Configuration& c, InitialState& s, bool solveFlow)
 {
     PetscFunctionBeginUser;
     const auto& m=c.input.mesh; const auto& grid=c.input.parallel.processGrid;
@@ -548,7 +549,7 @@ PetscErrorCode BuildInitialState(MPI_Comm comm, const Configuration& c, InitialS
         [phase](const Point& p) { return Finite(phase(p).TDp); },points));
     PetscCall(InitializeCellAverages(s.cellDM,s.porosity,s.mesh,
         [phase](const Point& p) { return Finite(phase(p).phil); },points));
-    PetscCall(InitializeFlow(comm,c,s));
+    if (solveFlow) PetscCall(InitializeFlow(comm,c,s));
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 } // namespace
@@ -564,10 +565,10 @@ PetscErrorCode DestroyInitialState(InitialState& s)
     record(VecDestroy(&s.porosity)); record(VecDestroy(&s.temperature));
     record(VecDestroy(&s.composition)); record(VecDestroy(&s.enthalpy));
     record(VecDestroy(&s.vertices)); record(DMDestroy(&s.cellDM)); record(DMDestroy(&s.vertexDM));
-    s.mesh=MeshInfo{}; s.time=0;
+    s.mesh=MeshInfo{}; s.time=0; s.acceptedSteps=0; s.phaseCoupled=false; s.sourceState.clear(); s.sourceTime=0;
     PetscFunctionReturn(first);
 }
-PetscErrorCode Initialize(MPI_Comm comm, const Configuration& c, InitialState& result)
+PetscErrorCode Initialize(MPI_Comm comm, const Configuration& c, InitialState& result, bool solveFlow)
 {
     PetscFunctionBeginUser;
     PetscCall(Agree(comm,result.IsEmpty() ? PETSC_SUCCESS : PETSC_ERR_ARG_WRONGSTATE));
@@ -575,13 +576,13 @@ PetscErrorCode Initialize(MPI_Comm comm, const Configuration& c, InitialState& r
     // callbacks/options should be those produced by MakeInitializationConfiguration.
     PetscCall(Agree(comm,Local([&]() { ValidateStage(c.input); return PETSC_SUCCESS; })));
     InitialState temporary;
-    const auto error=BuildInitialState(comm,c,temporary);
+    const auto error=BuildInitialState(comm,c,temporary,solveFlow);
     if (error) { (void)DestroyInitialState(temporary); PetscFunctionReturn(error); }
     std::swap(result.vertexDM,temporary.vertexDM); std::swap(result.cellDM,temporary.cellDM);
     std::swap(result.vertices,temporary.vertices); std::swap(result.enthalpy,temporary.enthalpy);
     std::swap(result.composition,temporary.composition); std::swap(result.temperature,temporary.temperature);
     std::swap(result.porosity,temporary.porosity);
-    result.mesh=std::move(temporary.mesh); result.time=temporary.time;
+    result.mesh=std::move(temporary.mesh); result.time=temporary.time; result.acceptedSteps=temporary.acceptedSteps;
     result.stokesVelocityMap=std::move(temporary.stokesVelocityMap);
     result.darcyVelocityMap=std::move(temporary.darcyVelocityMap);
     result.pressureMap=std::move(temporary.pressureMap);
@@ -636,6 +637,53 @@ PetscErrorCode OwnedValues(MPI_Comm comm, const InitialState& s, std::array<std:
 }
 void CheckStream(const std::ofstream& file, const std::string& name)
 { Require(static_cast<bool>(file),"Could not write "+name); }
+// Legacy ReadVectorTransport consumes x-fast rows of nondimensional cell
+// averages. PETSc's distributed ordering is generally NOT that row ordering.
+PetscErrorCode WriteTransportFields(MPI_Comm comm, const InitialState& s,
+                                   const std::string& directory, PetscMPIInt rank)
+{
+    PetscFunctionBeginUser;
+    Vec natural=nullptr, gathered=nullptr;
+    VecScatter scatter=nullptr;
+    const auto operation=[&]() -> PetscErrorCode {
+        PetscFunctionBeginUser;
+        PetscCall(DMDACreateNaturalVector(s.cellDM,&natural));
+        PetscCall(VecScatterCreateToZero(natural,&scatter,&gathered));
+        const Vec fields[2]={s.enthalpy,s.composition};
+        const char* names[2]={"cellH1.dat","cellC1.dat"};
+        const auto shape=s.mesh.CellDimensions();
+        for (int k=0;k<2;++k) {
+            PetscCall(DMDAGlobalToNaturalBegin(s.cellDM,fields[k],INSERT_VALUES,natural));
+            PetscCall(DMDAGlobalToNaturalEnd(s.cellDM,fields[k],INSERT_VALUES,natural));
+            PetscCall(VecScatterBegin(scatter,natural,gathered,INSERT_VALUES,SCATTER_FORWARD));
+            PetscCall(VecScatterEnd(scatter,natural,gathered,INSERT_VALUES,SCATTER_FORWARD));
+            PetscCall(Agree(comm,Local([&]() -> PetscErrorCode {
+                if (rank) return PETSC_SUCCESS;
+                const auto name=directory+"/"+names[k], temporary=name+".tmp";
+                std::ofstream file(temporary); CheckStream(file,temporary);
+                file<<std::setprecision(std::numeric_limits<PetscReal>::max_digits10);
+                const PetscScalar* data=nullptr;
+                PetscCall(VecGetArrayRead(gathered,&data));
+                for (PetscInt j=0;j<shape.j;++j) {
+                    for (PetscInt i=0;i<shape.i;++i) {
+                        if (i) file<<' ';
+                        file<<PetscRealPart(data[j*shape.i+i]);
+                    }
+                    file<<'\n';
+                }
+                PetscCall(VecRestoreArrayRead(gathered,&data));
+                file.close(); CheckStream(file,temporary);
+                std::filesystem::rename(temporary,name);
+                return PETSC_SUCCESS;
+            })));
+        }
+        PetscFunctionReturn(PETSC_SUCCESS);
+    };
+    const auto error=operation();
+    const auto e1=VecScatterDestroy(&scatter), e2=VecDestroy(&gathered), e3=VecDestroy(&natural);
+    PetscCall(error); PetscCall(e1); PetscCall(e2); PetscCall(e3);
+    PetscFunctionReturn(PETSC_SUCCESS);
+}
 PetscErrorCode WriteFlowDofs(MPI_Comm comm, const InitialState& s, const std::string& directory, PetscMPIInt rank)
 {
     PetscFunctionBeginUser;
@@ -676,17 +724,26 @@ PetscErrorCode WriteInitialState(MPI_Comm comm, const Configuration& c, const In
     PetscCall(Agree(comm,Local([&]() {
         directory=std::filesystem::path(input::ResolveOutputPath(
             c.input,"setup.txt",c.input.mesh.family)).parent_path().string();
-        if (!rank) std::filesystem::create_directories(directory);
+        if (!rank) {
+            std::filesystem::create_directories(directory);
+            const auto name=directory+"/transport_state.json";
+            std::ofstream file(name);
+            file<<"{\"schema_version\":1,\"status\":\"incomplete\"}\n";
+            file.close(); CheckStream(file,name);
+        }
         return PETSC_SUCCESS;
     })));
     std::array<std::vector<PetscReal>,4> values;
     PetscCall(OwnedValues(comm,s,values));
     PetscCall(WriteFlowDofs(comm,s,directory,rank));
+    PetscCall(WriteTransportFields(comm,s,directory,rank));
     GaussRule1D rule; PetscCall(Agree(comm,CreateGaussRule(2,rule)));
     PetscCall(Agree(comm,Local([&]() -> PetscErrorCode {
         std::ostringstream name; name<<directory<<"/initial_rank_"<<std::setw(6)<<std::setfill('0')<<rank<<".csv";
         std::ofstream file(name.str()); CheckStream(file,name.str()); file<<std::setprecision(17);
-        file<<"cell_id,i,j,x_centroid,y_centroid,area,H,C,T,phi\n";
+        file<<"cell_id,i,j,x_centroid,y_centroid,area,H,C,T,phi,"
+            <<"x_centroid_m,y_centroid_m,area_m2,h_J_kg,temperature_K\n";
+        const auto& scale=c.phase.derived();
         const auto r=s.mesh.OwnedCells(); std::size_t index=0;
         for (PetscInt j=r.begin.j;j<r.end.j;++j) for (PetscInt i=r.begin.i;i<r.end.i;++i,++index) {
             PetscInt id; PetscReal area,x,y; QuadVertices corners;
@@ -698,7 +755,8 @@ PetscErrorCode WriteInitialState(MPI_Comm comm, const Configuration& c, const In
             e=IntegrateCell(corners,rule,[](const Point& p) { return p.p[1]; },y); if (e) return e;
             file<<id<<','<<i<<','<<j<<','<<x/area<<','<<y/area<<','<<area;
             for (const auto& v : values) file<<','<<v[index];
-            file<<'\n';
+            file<<','<<x/area*scale.l0<<','<<y/area*scale.l0<<','<<area*scale.l0*scale.l0
+                <<','<<values[0][index]*scale.h0<<','<<values[2][index]*scale.dT<<'\n';
         }
         file.close(); CheckStream(file,name.str());
         return PETSC_SUCCESS;
@@ -712,14 +770,22 @@ PetscErrorCode WriteInitialState(MPI_Comm comm, const Configuration& c, const In
         if (rank) return PETSC_SUCCESS;
         const auto name=directory+"/setup.txt";
         std::ofstream file(name); CheckStream(file,name); file<<std::setprecision(17);
-        file<<"Initialization includes an accepted coupled Darcy-Stokes solve; no time step performed.\n"
+        file<<(s.phaseCoupled?"Full phase coupling completed; SSPRK2 H/C, phase and current Darcy-Stokes flow.\n":s.acceptedSteps?"Legacy dry preheat completed; initial Darcy-Stokes flow held fixed.\n":
+            "Initialization includes an accepted coupled Darcy-Stokes solve; no time step performed.\n")
             <<"simulation: "<<c.input.simulation.name<<"\nsource: "<<c.input.sourceFile
             <<"\nmesh: "<<c.input.mesh.family<<" "<<c.input.mesh.cells[0]<<" x "<<c.input.mesh.cells[1]
-            <<"\nranks: "<<c.input.parallel.ranks<<"\ntime: "<<s.time
+            <<"\nranks: "<<c.input.parallel.ranks<<"\ntime: "<<s.time<<"\naccepted steps: "<<s.acceptedSteps
             <<"\nplanned time end / initial step: "<<c.input.time.end<<" / "<<c.input.time.initialStep<<'\n';
         const char* names[4]={"H","C","T","phi"};
         for (int k=0;k<4;++k) file<<names[k]<<" cell-average min/max: "<<minimum[k]<<" "<<maximum[k]<<'\n';
-        file<<"T,phi: averages of phase applied to initial profiles at quadrature points.\n"
+        file<<(s.phaseCoupled?"T,phi: quadrature averages of bounded evolved H/C phase; coupled flow at current time.\n"
+            "Thermal model: H_t + div(v*T - L*(1-phi)*us - kappa*grad(T)) = adiabatic source.\n":s.acceptedSteps?"T,phi: diagnostic phase averages from evolved ML-WENO H/C.\n"
+            "Legacy thermal model: H_t + div(us*H - kappa*grad(H)) = 0; C and flow fixed.\n":
+            "T,phi: averages of phase applied to initial profiles at quadrature points.\n")
+            <<"H/C handoff: cellH1.dat and cellC1.dat contain actual Vec cell averages.\n"
+            <<"Layout: ny rows of nx values, x fastest, y increasing; no header.\n"
+            <<"Units: H nondimensional h/(cp*dT), C unscaled; metadata: transport_state.json.\n"
+            <<"Reuse requires matching cell geometry and reference scales; no interpolation is performed.\n"
             <<"Flow porosity: "<<(c.flow.dryPorosity?"prescribed zero (legacy dry preheat)":"equilibrium phase porosity")<<'\n'
             <<"Phase pressure uses Pa; H=h/(cp*dT), T=T_K/dT, x=x_m/l0, C is unscaled.\n";
         c.phase.printInfo(file);
@@ -754,14 +820,34 @@ PetscErrorCode WriteInitialState(MPI_Comm comm, const Configuration& c, const In
             const auto yamlName=directory+"/input_used.yaml";
             std::ofstream yaml(yamlName); yaml<<c.input.originalYaml; yaml.close(); CheckStream(yaml,yamlName);
         }
+        const auto nameState=directory+"/transport_state.json", temporary=nameState+".tmp";
+        std::ofstream metadata(temporary); CheckStream(metadata,temporary);
+        const auto& scale=c.phase.derived();
+        const auto& mesh=c.input.mesh;
+        metadata<<std::setprecision(17)
+            <<"{\n\"schema_version\":1,\"status\":\"complete\","
+            <<"\"representation\":\"cell averages\",\"ordering\":\"j*nx+i\",\n"
+            <<"\"H\":{\"file\":\"cellH1.dat\",\"units\":\"h/(cp*dT)\"},"
+            <<"\"C\":{\"file\":\"cellC1.dat\",\"units\":\"fraction\"},\n"
+            <<"\"time\":"<<s.time<<",\"time_s\":"<<s.time*scale.t0<<",\n"
+            <<"\"accepted_steps\":"<<s.acceptedSteps<<",\n"
+            <<"\"mesh\":{\"family\":\""<<mesh.family<<"\",\"nx\":"<<s.mesh.CellDimensions().i
+            <<",\"ny\":"<<s.mesh.CellDimensions().j
+            <<",\"domain\":["<<mesh.x[0]<<','<<mesh.x[1]<<','<<mesh.y[0]<<','<<mesh.y[1]<<']'
+            <<",\"perturbation\":"<<mesh.perturbation<<",\"seed\":"<<mesh.seed<<"},\n"
+            <<"\"scales\":{\"enthalpy_Jkg\":"<<scale.h0<<",\"length_m\":"<<scale.l0
+            <<",\"time_s\":"<<scale.t0<<"}\n}\n";
+        metadata.close(); CheckStream(metadata,temporary);
+        std::filesystem::rename(temporary,nameState);
         return PETSC_SUCCESS;
     })));
-    PetscCall(PetscPrintf(comm,"Initialized %s: %" PetscInt_FMT " x %" PetscInt_FMT " cells, t=%g\n"
+    PetscCall(PetscPrintf(comm,"%s %s: %" PetscInt_FMT " x %" PetscInt_FMT " cells, t=%g\n"
         "  H=[%g,%g], C=[%g,%g], T=[%g,%g], phi=[%g,%g]\n"
-        "  Output: %s\n  Initialization only; no coupled time step performed.\n",
-        c.input.simulation.name.c_str(),s.mesh.CellDimensions().i,s.mesh.CellDimensions().j,static_cast<double>(s.time),
+        "  Output: %s\n  H/C handoff: cellH1.dat, cellC1.dat (cell averages; legacy units).\n"
+        "  Accepted time steps: %" PetscInt_FMT "\n",
+        s.phaseCoupled?"Evolved":s.acceptedSteps?"Preheated":"Initialized",c.input.simulation.name.c_str(),s.mesh.CellDimensions().i,s.mesh.CellDimensions().j,static_cast<double>(s.time),
         static_cast<double>(minimum[0]),static_cast<double>(maximum[0]),static_cast<double>(minimum[1]),static_cast<double>(maximum[1]),
-        static_cast<double>(minimum[2]),static_cast<double>(maximum[2]),static_cast<double>(minimum[3]),static_cast<double>(maximum[3]),directory.c_str()));
+        static_cast<double>(minimum[2]),static_cast<double>(maximum[2]),static_cast<double>(minimum[3]),static_cast<double>(maximum[3]),directory.c_str(),s.acceptedSteps));
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 } // namespace mantle::couple
